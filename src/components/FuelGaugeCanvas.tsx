@@ -3,10 +3,19 @@ import React, { useEffect, useRef } from 'react';
 interface FuelGaugeCanvasProps {
   fuelLevel: number; // 0 to 100
   tankCapacity: number; // e.g. 50
+  reserveLiters?: number; // e.g. 5.0
 }
 
-export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({ fuelLevel, tankCapacity }) => {
+export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
+  fuelLevel,
+  tankCapacity,
+  reserveLiters,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const resLiters = reserveLiters ?? tankCapacity * 0.1; // Default 10% of tank capacity
+  const currentLitersVal = (tankCapacity * fuelLevel) / 100;
+  const isReserve = currentLitersVal <= resLiters;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -30,22 +39,25 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({ fuelLevel, tan
 
     const currentFrac = Math.min(1, Math.max(0, fuelLevel / 100));
     const currentAngle = startAngle + totalSweep * currentFrac;
-    const currentLiters = (tankCapacity * currentFrac).toFixed(1);
+    const currentLiters = currentLitersVal.toFixed(1);
+
+    // Reserve fraction of full tank (e.g. 5L / 50L = 0.10)
+    const reserveFrac = Math.min(0.35, Math.max(0.05, resLiters / tankCapacity));
 
     // 1. Dark Gauge Outer Bezel / Housing
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, radius + 16, startAngle - 0.12, endAngle + 0.12, false);
-    ctx.strokeStyle = '#1a1a22';
+    ctx.strokeStyle = isReserve ? '#3b0a0a' : '#1a1a22';
     ctx.lineWidth = 10;
     ctx.stroke();
 
     // Inner dial background
     ctx.beginPath();
     ctx.arc(cx, cy, radius + 11, 0, Math.PI * 2);
-    ctx.fillStyle = '#0a0a0d';
+    ctx.fillStyle = isReserve ? '#120505' : '#0a0a0d';
     ctx.fill();
-    ctx.strokeStyle = '#22222a';
+    ctx.strokeStyle = isReserve ? '#450a0a' : '#22222a';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
@@ -57,12 +69,12 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({ fuelLevel, tan
     ctx.lineCap = 'round';
     ctx.stroke();
 
-    // 3. Red Reserve Zone Arc (0% to 15%)
-    const reserveEndAngle = startAngle + totalSweep * 0.15;
+    // 3. Red Reserve Zone Arc (0 to reserveFrac)
+    const reserveEndAngle = startAngle + totalSweep * reserveFrac;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, startAngle, reserveEndAngle, false);
     ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 7;
+    ctx.lineWidth = 7.5;
     ctx.lineCap = 'round';
     ctx.stroke();
 
@@ -70,12 +82,11 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({ fuelLevel, tan
     if (currentFrac > 0) {
       ctx.beginPath();
       ctx.arc(cx, cy, radius, startAngle, currentAngle, false);
-      const isReserve = fuelLevel < 15;
       ctx.strokeStyle = isReserve ? '#ef4444' : '#c19a6b';
       ctx.lineWidth = 7;
       ctx.lineCap = 'round';
       ctx.shadowColor = isReserve ? '#ef4444' : '#c19a6b';
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = isReserve ? 14 : 8;
       ctx.stroke();
       ctx.shadowBlur = 0;
     }
@@ -88,7 +99,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({ fuelLevel, tan
 
       const isMajor = i % 4 === 0; // 0, 1/4, 1/2, 3/4, 1
       const isMedium = i % 2 === 0;
-      const isReserveTick = frac <= 0.15;
+      const isReserveTick = frac <= reserveFrac;
 
       const innerR = radius - (isMajor ? 12 : isMedium ? 8 : 5);
       const outerR = radius - 3;
@@ -118,7 +129,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({ fuelLevel, tan
         else if (i === 12) labelText = '3/4';
         else if (i === 16) labelText = '1/1';
 
-        ctx.fillStyle = i === 0 && fuelLevel < 15 ? '#ef4444' : '#d4d4d8';
+        ctx.fillStyle = i === 0 && isReserve ? '#ef4444' : '#d4d4d8';
         ctx.font = '800 9px "Outfit", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -128,17 +139,17 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({ fuelLevel, tan
 
     // 6. Fuel Pump Icon in the Center
     ctx.save();
-    ctx.fillStyle = fuelLevel < 15 ? '#ef4444' : '#a1a1aa';
+    ctx.fillStyle = isReserve ? '#ef4444' : '#a1a1aa';
     ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('⛽', cx, cy - 28);
     ctx.restore();
 
-    // 7. Needle Indicator (Renault Clio Orange Pointer)
+    // 7. Needle Indicator (Renault Clio Orange Pointer, turns Red when in Reserve)
     ctx.save();
-    ctx.shadowColor = fuelLevel < 15 ? '#ef4444' : '#f97316';
-    ctx.shadowBlur = 6;
+    ctx.shadowColor = isReserve ? '#ef4444' : '#f97316';
+    ctx.shadowBlur = isReserve ? 10 : 6;
 
     const needleLength = radius - 2;
     const nx = cx + needleLength * Math.cos(currentAngle);
@@ -147,7 +158,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({ fuelLevel, tan
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(nx, ny);
-    ctx.strokeStyle = fuelLevel < 15 ? '#dc2626' : '#f97316';
+    ctx.strokeStyle = isReserve ? '#dc2626' : '#f97316';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.stroke();
@@ -157,30 +168,34 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({ fuelLevel, tan
     ctx.arc(cx, cy, 6, 0, Math.PI * 2);
     ctx.fillStyle = '#18181b';
     ctx.fill();
-    ctx.strokeStyle = '#f97316';
+    ctx.strokeStyle = isReserve ? '#ef4444' : '#f97316';
     ctx.lineWidth = 2;
     ctx.stroke();
 
     ctx.beginPath();
     ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#f97316';
+    ctx.fillStyle = isReserve ? '#ef4444' : '#f97316';
     ctx.fill();
 
     ctx.restore();
 
     // 8. Liters and Percentage Digital Display at bottom
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = isReserve ? '#f87171' : '#ffffff';
     ctx.font = '900 18px "Outfit", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(`${currentLiters} L`, cx, cy + 22);
 
-    ctx.fillStyle = '#a1a1aa';
+    ctx.fillStyle = isReserve ? '#ef4444' : '#a1a1aa';
     ctx.font = '800 10px "Outfit", sans-serif';
-    ctx.fillText(`DE ${tankCapacity} L (${Math.round(fuelLevel)}%)`, cx, cy + 45);
+    if (isReserve) {
+      ctx.fillText(`⚠️ RESERVA (≤ ${resLiters.toFixed(1)} L)`, cx, cy + 45);
+    } else {
+      ctx.fillText(`DE ${tankCapacity} L (${Math.round(fuelLevel)}%)`, cx, cy + 45);
+    }
 
     ctx.restore();
-  }, [fuelLevel, tankCapacity]);
+  }, [fuelLevel, tankCapacity, resLiters, currentLitersVal, isReserve]);
 
   return (
     <div className="flex flex-col items-center justify-center relative">

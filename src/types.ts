@@ -14,6 +14,8 @@ export interface CarConfig {
   fuelLevel: number; // 0 to 100 percentage
   avgConsumptionGasoline: number;
   avgConsumptionEthanol: number;
+  reserveLiters?: number; // Configurable reserve threshold in Liters
+  totalOdometerKm?: number; // Total odometer mileage in KM (e.g. 149251)
 }
 
 export interface TripData {

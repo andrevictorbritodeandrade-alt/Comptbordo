@@ -184,13 +184,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
           </div>
 
-          <div>
-            <label className="block text-zinc-400 mb-1 text-[11px] uppercase tracking-wider font-extrabold">Capacidade do Tanque (L)</label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-amber-400 mb-1 text-[10px] uppercase tracking-wider font-extrabold">Odômetro Total (km)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={carConfig.totalOdometerKm ?? 149251}
+                onChange={(e) => setCarConfig((p) => ({ ...p, totalOdometerKm: Math.max(0, Number(e.target.value)) }))}
+                className="w-full p-2 bg-[#141418] border border-amber-500/40 rounded-xl text-amber-300 font-bold font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-zinc-400 mb-1 text-[10px] uppercase tracking-wider font-extrabold">Capacidade do Tanque (L)</label>
+              <input
+                type="number"
+                value={carConfig.tankCapacity}
+                onChange={(e) => setCarConfig((p) => ({ ...p, tankCapacity: Math.max(1, Number(e.target.value)) }))}
+                className="w-full p-2 bg-[#141418] border border-[#222] rounded-xl text-white font-bold"
+              />
+            </div>
+          </div>
+
+          <div className="mb-3">
+            <label className="block text-red-400 mb-1 text-[10px] uppercase tracking-wider font-extrabold">Reserva (Litros)</label>
             <input
               type="number"
-              value={carConfig.tankCapacity}
-              onChange={(e) => setCarConfig((p) => ({ ...p, tankCapacity: Math.max(1, Number(e.target.value)) }))}
-              className="w-full p-2 bg-[#141418] border border-[#222] rounded-xl text-white font-bold"
+              step="0.5"
+              value={carConfig.reserveLiters ?? (carConfig.tankCapacity * 0.1)}
+              onChange={(e) => setCarConfig((p) => ({ ...p, reserveLiters: Math.max(0.5, Number(e.target.value)) }))}
+              className="w-full p-2 bg-[#141418] border border-red-500/40 rounded-xl text-red-400 font-bold"
             />
           </div>
 

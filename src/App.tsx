@@ -18,6 +18,8 @@ import {
 import { SpeedCanvas } from './components/SpeedCanvas';
 import { FuelGaugeCanvas } from './components/FuelGaugeCanvas';
 import { InstantConsumptionCanvas } from './components/InstantConsumptionCanvas';
+import { SpeedStockChart } from './components/SpeedStockChart';
+import { OdometerDisplay } from './components/OdometerDisplay';
 import { SettingsModal } from './components/SettingsModal';
 import { FuelPhotoScannerModal } from './components/FuelPhotoScannerModal';
 import { CarConfig, TripsState, TripKey, OperatingMode, GpsState } from './types';
@@ -52,15 +54,23 @@ export default function App() {
   const savedState = useRef(getSavedState()).current;
 
   const [carConfig, setCarConfig] = useState<CarConfig>(() => {
-    if (savedState?.carConfig) return savedState.carConfig;
+    // If state was saved previously, update fuelLevel to 18.5% if it was near 23.5%
+    if (savedState?.carConfig) {
+      const cfg = savedState.carConfig;
+      if (cfg.fuelLevel === 23.5 || cfg.fuelLevel === 45) {
+        return { ...cfg, fuelLevel: 18.5, currentFuel: 'gasoline', totalOdometerKm: cfg.totalOdometerKm ?? 149251 };
+      }
+      return { ...cfg, totalOdometerKm: cfg.totalOdometerKm ?? 149251 };
+    }
     return {
       model: 'Renault Clio',
       details: '2010 1.0 16V Hi-Flex',
       tankCapacity: 50,
       currentFuel: 'gasoline',
-      fuelLevel: 23.5, // 2 traços acima da Reserva R = ~23.5% (~11.8 L de 50L) - Exato da foto!
+      fuelLevel: 18.5, // Entre o 1º e o 2º traço acima da Reserva R (~9.25 Litros de 50L)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
+      totalOdometerKm: 149251,
     };
   });
 
@@ -76,6 +86,7 @@ export default function App() {
     if (savedState?.mode && savedState.mode !== 'pending') return savedState.mode;
     return 'pending';
   });
+  const [speedLimit, setSpeedLimit] = useState<number>(80);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showPhotoScanner, setShowPhotoScanner] = useState<boolean>(false);
   const [gpsDenied, setGpsDenied] = useState<boolean>(false);
@@ -243,6 +254,13 @@ export default function App() {
     setSpeed(val);
   };
 
+  const handleOdometerChange = (newKm: number) => {
+    setCarConfig((prev) => ({
+      ...prev,
+      totalOdometerKm: newKm,
+    }));
+  };
+
   // Keep refs up-to-date for interval tick without causing effect recreation
   const speedRef = useRef(speed);
   useEffect(() => {
@@ -272,13 +290,24 @@ export default function App() {
       const currentTripKey = activeTripKeyRef.current;
       const currentConfig = carConfigRef.current;
 
-      // Fuel consumption rate simulation
-      if (currentSpeed > 0 && currentConfig.fuelLevel > 0) {
-        const speedFactor = currentSpeed / 60;
-        const consumptionRate = 0.0006 * speedFactor * deltaSeconds;
+      // Mileage and Fuel accumulation based on real speed
+      if (currentSpeed > 0) {
+        const baseConsumption =
+          currentConfig.currentFuel === 'gasoline'
+            ? currentConfig.avgConsumptionGasoline
+            : currentConfig.avgConsumptionEthanol;
+
+        // Distance covered in km = speed(km/h) * (deltaSeconds / 3600)
+        const distanceKm = (currentSpeed / 3600) * deltaSeconds;
+        // Liters consumed = distance / kmPerLiter
+        const litersConsumed = baseConsumption > 0 ? distanceKm / baseConsumption : 0;
+        // % of tank consumed
+        const percentageConsumed = (litersConsumed / currentConfig.tankCapacity) * 100;
+
         setCarConfig((prev) => ({
           ...prev,
-          fuelLevel: Math.max(0, prev.fuelLevel - consumptionRate),
+          fuelLevel: Math.max(0, prev.fuelLevel - percentageConsumed),
+          totalOdometerKm: (prev.totalOdometerKm ?? 149251) + distanceKm,
         }));
       }
 
@@ -409,10 +438,13 @@ export default function App() {
       ? baseConsumption * 0.85 // Acima de 80 km/h (Alto consumo)
       : baseConsumption * 0.70;
 
-  const currentLiters = ((carConfig.tankCapacity * carConfig.fuelLevel) / 100).toFixed(1);
-  const autonomy = Math.round(Number(currentLiters) * baseConsumption);
+  const currentLitersNum = (carConfig.tankCapacity * carConfig.fuelLevel) / 100;
+  const currentLiters = currentLitersNum.toFixed(1);
+  const reserveLitersNum = carConfig.reserveLiters ?? (carConfig.tankCapacity * 0.1);
+  const reserveLiters = reserveLitersNum.toFixed(1);
+  const isReserveFuel = currentLitersNum <= reserveLitersNum;
+  const autonomy = Math.round(currentLitersNum * baseConsumption);
   const fullTankAutonomy = Math.round(carConfig.tankCapacity * baseConsumption);
-  const reserveLiters = (carConfig.tankCapacity * 0.1).toFixed(1);
 
   return (
     <div
@@ -564,7 +596,7 @@ export default function App() {
 
         {/* Dashboard Grid - Fitted 100% vertically, No Scrolling */}
         <div className="grid grid-cols-12 gap-2 flex-1 min-h-0 h-full overflow-hidden">
-          {/* Column 1: Speedometer Gauge (Col 4) */}
+          {/* Column 1: Speedometer Gauge & Total Odometer (Col 4) */}
           <div className="col-span-12 md:col-span-4 flex flex-col gap-2 h-full min-h-0 justify-between">
             <div className="flex-1 min-h-0">
               <SpeedCanvas
@@ -573,6 +605,16 @@ export default function App() {
                 isSimulated={mode === 'simulated'}
                 simulatedSpeed={simulatedSpeed}
                 onSimulatedSpeedChange={handleSimulatedSpeedChange}
+                speedLimit={speedLimit}
+                onSpeedLimitChange={setSpeedLimit}
+              />
+            </div>
+
+            {/* Renault Clio Digital Odometer */}
+            <div className="shrink-0">
+              <OdometerDisplay
+                totalKm={carConfig.totalOdometerKm ?? 149251}
+                onOdometerChange={handleOdometerChange}
               />
             </div>
 
@@ -587,8 +629,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Column 2: Trip Computer (Col 5) */}
-          <div className="col-span-12 md:col-span-5 flex flex-col justify-between gap-2 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-hidden">
+          {/* Column 2: Trip Computer & Speed Telemetry Stock Chart (Col 5) */}
+          <div className="col-span-12 md:col-span-5 flex flex-col justify-between gap-2 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-y-auto custom-scrollbar">
             {/* Trip Tabs Switcher */}
             <div className="flex bg-[#050508] border border-[#1e1e28] rounded-xl p-1 shrink-0">
               {(['a', 'b'] as TripKey[]).map((k) => (
@@ -611,46 +653,56 @@ export default function App() {
             </div>
 
             {/* 4 Large High-Visibility Metric Cards */}
-            <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 my-0.5 items-stretch">
-              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-3 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+            <div className="grid grid-cols-2 gap-2 shrink-0 my-0.5 items-stretch">
+              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-2.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
                   DISTÂNCIA
                 </span>
-                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
                   {(activeTrip.distance / 1000).toFixed(1)}
                 </div>
-                <span className="text-[10px] sm:text-xs font-black text-zinc-400 uppercase mt-1">KM</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-3 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-2.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
                   TEMPO DECORRIDO
                 </span>
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+                <div className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none">
                   {formatTime(activeTrip.elapsedTime)}
                 </div>
-                <span className="text-[10px] sm:text-xs font-black text-zinc-400 uppercase mt-1">HH:MM:SS</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">HH:MM:SS</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-3 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-2.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
                   CONSUMO MÉDIO
                 </span>
-                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
                   {tripAvgCons}
                 </div>
-                <span className="text-[10px] sm:text-xs font-black text-zinc-400 uppercase mt-1">KM / L</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / L</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-3 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-2.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
                   VELOCIDADE MÉDIA
                 </span>
-                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
                   {tripAvgSpeed}
                 </div>
-                <span className="text-[10px] sm:text-xs font-black text-zinc-400 uppercase mt-1">KM / H</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / H</span>
               </div>
+            </div>
+
+            {/* B3 Stock Market Style Speed Chart (Gráfico de Bolsa de Valores) */}
+            <div className="shrink-0">
+              <SpeedStockChart
+                speedSamples={activeTrip.speedSamples}
+                currentSpeed={speed}
+                avgSpeed={Number(tripAvgSpeed) || 0}
+                speedLimit={speedLimit}
+              />
             </div>
 
             {/* Instant Consumption */}
@@ -693,22 +745,51 @@ export default function App() {
           </div>
 
           {/* Column 3: Renault Clio Fuel Gauge & Tank Info (Col 3) */}
-          <div className="col-span-12 md:col-span-3 flex flex-col justify-between gap-2 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-hidden">
+          <div
+            className={`col-span-12 md:col-span-3 flex flex-col justify-between gap-2 h-full min-h-0 border rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-hidden transition-colors ${
+              isReserveFuel
+                ? 'bg-[#150a0a] border-red-500/60 shadow-red-950/40'
+                : 'bg-[#09090d] border-[#1e1e28]'
+            }`}
+          >
             <div className="flex items-center justify-between pb-1 border-b border-[#1e1e28] shrink-0">
-              <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b]">
+              <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] flex items-center gap-1.5">
                 MARCADOR CLIO
+                {isReserveFuel && (
+                  <span className="bg-red-500/20 text-red-400 border border-red-500/60 px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider animate-pulse">
+                    ⚠️ RESERVA!
+                  </span>
+                )}
               </span>
               <span className="text-[10px] font-black text-zinc-400 uppercase">
                 {carConfig.currentFuel === 'gasoline' ? 'GASOLINA' : 'ETANOL'}
               </span>
             </div>
 
+            {/* AI Photo Scan Callout */}
+            <button
+              onClick={() => setShowPhotoScanner(true)}
+              className="w-full py-1.5 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95 shadow-sm"
+            >
+              <Sparkles size={14} className="text-[#c19a6b]" /> Escanear Foto do Tanque
+            </button>
+
             {/* Dial Canvas */}
             <div className="flex justify-center items-center relative shrink-0 my-0.5">
-              <div className="bg-[#12121c] border border-[#222232] rounded-2xl p-1.5 relative flex justify-center shadow-inner">
-                <FuelGaugeCanvas fuelLevel={carConfig.fuelLevel} tankCapacity={carConfig.tankCapacity} />
-                {carConfig.fuelLevel < 15 && (
-                  <div className="absolute top-2 right-2 bg-red-600 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-xs border-2 border-white animate-pulse shadow-md">
+              <div
+                className={`border rounded-2xl p-1.5 relative flex justify-center shadow-inner ${
+                  isReserveFuel
+                    ? 'bg-[#1e0a0a] border-red-500/50'
+                    : 'bg-[#12121c] border-[#222232]'
+                }`}
+              >
+                <FuelGaugeCanvas
+                  fuelLevel={carConfig.fuelLevel}
+                  tankCapacity={carConfig.tankCapacity}
+                  reserveLiters={reserveLitersNum}
+                />
+                {isReserveFuel && (
+                  <div className="absolute top-2 right-2 bg-red-600 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-xs border-2 border-white animate-bounce shadow-md">
                     R
                   </div>
                 )}
@@ -717,16 +798,34 @@ export default function App() {
 
             {/* Tank Metrics Grid */}
             <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 my-0.5">
-              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center flex flex-col justify-center">
+              <div
+                className={`p-2 rounded-xl text-center flex flex-col justify-center border ${
+                  isReserveFuel
+                    ? 'bg-red-950/30 border-red-500/50'
+                    : 'bg-[#12121c] border-[#222232]'
+                }`}
+              >
                 <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
-                <div className="text-lg sm:text-xl font-black text-white mt-0.5">{currentLiters} L</div>
+                <div className={`text-lg sm:text-xl font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
+                  {currentLiters} L
+                </div>
                 <span className="text-[9px] text-zinc-400 font-bold">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center flex flex-col justify-center">
+              <div
+                className={`p-2 rounded-xl text-center flex flex-col justify-center border ${
+                  isReserveFuel
+                    ? 'bg-red-500/20 border-red-500 shadow-md animate-pulse'
+                    : 'bg-[#12121c] border-[#222232]'
+                }`}
+              >
                 <span className="text-[10px] font-black uppercase tracking-wider text-red-400">RESERVA</span>
-                <div className="text-lg sm:text-xl font-black text-red-400 mt-0.5">~{reserveLiters} L</div>
-                <span className="text-[9px] text-zinc-400 font-bold">Reserva (R)</span>
+                <div className="text-lg sm:text-xl font-black text-red-400 mt-0.5">
+                  {isReserveFuel ? '⚠️ EM RESERVA' : `≤ ${reserveLiters} L`}
+                </div>
+                <span className="text-[9px] text-zinc-400 font-bold">
+                  {isReserveFuel ? `${currentLiters}L ≤ ${reserveLiters}L` : `Limite ${reserveLiters} Litros`}
+                </span>
               </div>
 
               <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center flex flex-col justify-center">
@@ -738,17 +837,9 @@ export default function App() {
               <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center flex flex-col justify-center">
                 <span className="text-[10px] font-black uppercase tracking-wider text-zinc-300">TANQUE CHEIO</span>
                 <div className="text-xl sm:text-2xl font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
-                <span className="text-[9px] text-zinc-400 font-bold">50L @ {baseConsumption} km/L</span>
+                <span className="text-[9px] text-zinc-400 font-bold">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
               </div>
             </div>
-
-            {/* AI Photo Scan Callout */}
-            <button
-              onClick={() => setShowPhotoScanner(true)}
-              className="w-full py-2.5 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shrink-0 active:scale-95"
-            >
-              <Sparkles size={15} /> Escanear Foto do Tanque
-            </button>
           </div>
         </div>
       </div>
