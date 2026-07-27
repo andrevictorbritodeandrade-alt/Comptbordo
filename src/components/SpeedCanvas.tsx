@@ -231,117 +231,13 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
 
   return (
     <div
-      className={`relative border rounded-2xl p-3 sm:p-4 text-center overflow-hidden flex flex-col items-center justify-between shadow-xl h-full min-h-[220px] transition-colors duration-300 ${
+      className={`relative border rounded-2xl p-3 sm:p-4 text-center overflow-hidden flex flex-col items-center justify-center shadow-xl h-full min-h-[220px] transition-colors duration-300 ${
         isOverLimit
           ? 'bg-[#150a0a] border-red-500/50 shadow-red-950/30'
           : 'bg-[#09090d] border-[#1e1e28]'
       }`}
     >
-      {/* Top Banner Status & Speed Limit Control Bar */}
-      <div className="w-full flex justify-between items-center z-20 gap-1">
-        {/* Configurable Speed Limit Badge */}
-        <div className="flex items-center gap-1 bg-[#12121c] border border-[#222232] rounded-lg px-2 py-1">
-          <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1">
-            <ShieldAlert size={12} className="text-red-400" />
-            <span className="hidden sm:inline">LIMITE:</span>
-            <strong className="text-red-400">{speedLimit} KM/H</strong>
-          </span>
-
-          <div className="flex items-center gap-0.5 ml-1 border-l border-zinc-700/50 pl-1">
-            <button
-              onClick={() => updateSpeedLimit(speedLimit - 5)}
-              className="p-0.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded transition-colors"
-              title="Diminuir limite (-5 km/h)"
-            >
-              <Minus size={12} />
-            </button>
-            <button
-              onClick={() => updateSpeedLimit(speedLimit + 5)}
-              className="p-0.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded transition-colors"
-              title="Aumentar limite (+5 km/h)"
-            >
-              <Plus size={12} />
-            </button>
-          </div>
-        </div>
-
-        {/* Sound Toggle & Status Alert Badge */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => {
-              const nextState = !soundEnabled;
-              setSoundEnabled(nextState);
-              if (nextState) {
-                playWarningBeep(); // Test sound on enable
-              }
-            }}
-            className={`p-1.5 rounded-lg border text-xs font-black flex items-center gap-1 transition-all ${
-              soundEnabled
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25'
-                : 'bg-zinc-800/80 border-zinc-700 text-zinc-400 hover:bg-zinc-700'
-            }`}
-            title={soundEnabled ? 'Alerta Sonoro Ativado (Clique para Silenciar)' : 'Alerta Sonoro Mudo (Clique para Ativar)'}
-          >
-            {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
-            <span className="text-[9px] uppercase font-bold hidden sm:inline">
-              {soundEnabled ? 'SOM ON' : 'MUTO'}
-            </span>
-          </button>
-
-          {isOverLimit ? (
-            <span className="bg-red-500/20 text-red-400 border border-red-500/60 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider animate-pulse flex items-center gap-1 shadow-md shadow-red-950/50">
-              <AlertTriangle size={12} className="animate-bounce" />
-              <span>EXCESSO DE VELOCIDADE!</span>
-            </span>
-          ) : isEco ? (
-            <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm">
-              🌿 VELOCIDADE ECO
-            </span>
-          ) : speed > 0 ? (
-            <span className="bg-[#c19a6b]/20 text-[#c19a6b] border border-[#c19a6b]/40 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
-              ⚙️ CRUZEIRO
-            </span>
-          ) : (
-            <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
-              PARADO
-            </span>
-          )}
-        </div>
-      </div>
-
       <canvas ref={canvasRef} width={260} height={180} className="relative z-10" />
-
-      {/* GPS Source Indicator */}
-      <div className="text-[10px] text-zinc-400 uppercase tracking-[0.15em] font-extrabold flex items-center justify-center gap-1.5 z-20">
-        {textSource}
-      </div>
-
-      {isSimulated && onSimulatedSpeedChange && typeof simulatedSpeed === 'number' && (
-        <div className="w-full max-w-xs mt-2 pt-2 border-t border-[#1e1e28] flex flex-col items-center gap-1.5 z-20">
-          <div className="flex justify-between w-full text-[10px] uppercase tracking-wider text-zinc-400">
-            <span>Acelerador Simulador:</span>
-            <strong
-              className={
-                simulatedSpeed > speedLimit
-                  ? 'text-red-400 font-mono font-bold'
-                  : simulatedSpeed >= 40
-                  ? 'text-emerald-400 font-mono font-bold'
-                  : 'text-[#c19a6b] font-mono font-bold'
-              }
-            >
-              {Math.round(simulatedSpeed)} km/h
-            </strong>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="150"
-            value={simulatedSpeed}
-            onChange={(e) => onSimulatedSpeedChange(Number(e.target.value))}
-            className="w-full cursor-pointer accent-[#c19a6b]"
-          />
-        </div>
-      )}
     </div>
   );
 };

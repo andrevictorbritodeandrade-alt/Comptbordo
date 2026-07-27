@@ -28,9 +28,9 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     ctx.clearRect(0, 0, width, height);
 
     // Center of the arc dial gauge (Renault Clio style)
-    const cx = width / 2;
-    const cy = 84;
-    const radius = 56;
+    const cx = width / 2; // 100 for 200 width
+    const cy = 78;
+    const radius = 52;
 
     // Angle range: 135 deg (Empty) to 45 deg (Full)
     const startAngle = (135 * Math.PI) / 180;
@@ -47,14 +47,14 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     // 1. Dark Gauge Outer Bezel / Housing
     ctx.save();
     ctx.beginPath();
-    ctx.arc(cx, cy, radius + 16, startAngle - 0.12, endAngle + 0.12, false);
+    ctx.arc(cx, cy, radius + 15, startAngle - 0.12, endAngle + 0.12, false);
     ctx.strokeStyle = isReserve ? '#3b0a0a' : '#1a1a22';
-    ctx.lineWidth = 10;
+    ctx.lineWidth = 9;
     ctx.stroke();
 
     // Inner dial background
     ctx.beginPath();
-    ctx.arc(cx, cy, radius + 11, 0, Math.PI * 2);
+    ctx.arc(cx, cy, radius + 10, 0, Math.PI * 2);
     ctx.fillStyle = isReserve ? '#120505' : '#0a0a0d';
     ctx.fill();
     ctx.strokeStyle = isReserve ? '#450a0a' : '#22222a';
@@ -65,7 +65,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     ctx.beginPath();
     ctx.arc(cx, cy, radius, startAngle, endAngle, false);
     ctx.strokeStyle = '#1e1e26';
-    ctx.lineWidth = 7;
+    ctx.lineWidth = 6.5;
     ctx.lineCap = 'round';
     ctx.stroke();
 
@@ -74,7 +74,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     ctx.beginPath();
     ctx.arc(cx, cy, radius, startAngle, reserveEndAngle, false);
     ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 7.5;
+    ctx.lineWidth = 7;
     ctx.lineCap = 'round';
     ctx.stroke();
 
@@ -83,10 +83,10 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
       ctx.beginPath();
       ctx.arc(cx, cy, radius, startAngle, currentAngle, false);
       ctx.strokeStyle = isReserve ? '#ef4444' : '#c19a6b';
-      ctx.lineWidth = 7;
+      ctx.lineWidth = 6.5;
       ctx.lineCap = 'round';
       ctx.shadowColor = isReserve ? '#ef4444' : '#c19a6b';
-      ctx.shadowBlur = isReserve ? 14 : 8;
+      ctx.shadowBlur = isReserve ? 12 : 7;
       ctx.stroke();
       ctx.shadowBlur = 0;
     }
@@ -101,8 +101,8 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
       const isMedium = i % 2 === 0;
       const isReserveTick = frac <= reserveFrac;
 
-      const innerR = radius - (isMajor ? 12 : isMedium ? 8 : 5);
-      const outerR = radius - 3;
+      const innerR = radius - (isMajor ? 11 : isMedium ? 7 : 4.5);
+      const outerR = radius - 2.5;
 
       const x1 = cx + innerR * Math.cos(angle);
       const y1 = cy + innerR * Math.sin(angle);
@@ -118,7 +118,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
 
       // Labels on Major Ticks
       if (isMajor) {
-        const labelR = radius - 20;
+        const labelR = radius - 18;
         const lx = cx + labelR * Math.cos(angle);
         const ly = cy + labelR * Math.sin(angle);
 
@@ -130,7 +130,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
         else if (i === 16) labelText = '1/1';
 
         ctx.fillStyle = i === 0 && isReserve ? '#ef4444' : '#ffffff';
-        ctx.font = '900 10.5px "Outfit", sans-serif';
+        ctx.font = '900 10px "Outfit", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(labelText, lx, ly);
@@ -140,13 +140,13 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     // 6. Fuel Pump Icon in the Center
     ctx.save();
     ctx.fillStyle = isReserve ? '#ef4444' : '#a1a1aa';
-    ctx.font = '15px sans-serif';
+    ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('⛽', cx, cy - 28);
+    ctx.fillText('⛽', cx, cy - 25);
     ctx.restore();
 
-    // 7. Needle Indicator (Renault Clio Orange Pointer, turns Red when in Reserve)
+    // 7. Needle Indicator
     ctx.save();
     ctx.shadowColor = isReserve ? '#ef4444' : '#f97316';
     ctx.shadowBlur = isReserve ? 10 : 6;
@@ -165,7 +165,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
 
     // Center Pivot Cap
     ctx.beginPath();
-    ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
     ctx.fillStyle = '#18181b';
     ctx.fill();
     ctx.strokeStyle = isReserve ? '#ef4444' : '#f97316';
@@ -180,18 +180,24 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     ctx.restore();
 
     // 8. Liters and Percentage Digital Display at bottom
-    ctx.fillStyle = isReserve ? '#f87171' : '#ffffff';
-    ctx.font = '900 20px "Outfit", sans-serif';
-    ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(`${currentLiters} L`, cx, cy + 20);
+    ctx.textAlign = 'center';
+    if (isReserve) {
+      ctx.fillStyle = '#f87171';
+      ctx.font = '900 18px "Outfit", sans-serif';
+      ctx.fillText(`${currentLiters} L  R`, cx, cy + 18);
+    } else {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 18px "Outfit", sans-serif';
+      ctx.fillText(`${currentLiters} L`, cx, cy + 18);
+    }
 
     ctx.fillStyle = isReserve ? '#ef4444' : '#cbd5e1';
-    ctx.font = '800 11px "Outfit", sans-serif';
+    ctx.font = '800 10.5px "Outfit", sans-serif';
     if (isReserve) {
-      ctx.fillText(`⚠️ RESERVA (≤ ${resLiters.toFixed(1)} L)`, cx, cy + 44);
+      ctx.fillText(`⚠️ RESERVA (≤ ${resLiters.toFixed(1)} L)`, cx, cy + 40);
     } else {
-      ctx.fillText(`DE ${tankCapacity} L (${Math.round(fuelLevel)}%)`, cx, cy + 44);
+      ctx.fillText(`de ${tankCapacity} L (${Math.round(fuelLevel)}%)`, cx, cy + 40);
     }
 
     ctx.restore();
@@ -199,7 +205,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center relative">
-      <canvas ref={canvasRef} width={220} height={156} className="block" />
+      <canvas ref={canvasRef} width={200} height={200} className="block" />
     </div>
   );
 };

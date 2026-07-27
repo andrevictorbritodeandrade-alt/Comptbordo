@@ -565,59 +565,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* GPS Status Indicator */}
-            <div
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-black border uppercase tracking-wider ${
-                gpsState.active
-                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                  : 'bg-amber-500/15 border-amber-500/40 text-amber-400'
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  gpsState.active ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                }`}
-              />
-              {gpsState.statusText}
-            </div>
-
-            {/* PWA Install Button */}
-            <PwaInstallPrompt />
-
-            {/* Quick AI Photo */}
-            <button
-              onClick={() => setShowPhotoScanner(true)}
-              className="flex items-center gap-1 bg-[#c19a6b] hover:bg-[#a88255] text-black border border-[#c19a6b] px-2.5 py-1 text-[10px] sm:text-xs font-black rounded-xl uppercase tracking-wider transition-all active:scale-95 shadow-md"
-              title="Escanear foto do tanque com IA"
-            >
-              <Sparkles size={14} /> <span className="hidden sm:inline">IA Foto</span>
-            </button>
-
-            {/* Settings */}
-            <button
-              onClick={() => setShowSettings(true)}
-              className="p-1.5 sm:px-2.5 sm:py-1 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl text-[10px] sm:text-xs font-extrabold flex items-center gap-1 transition-colors"
-            >
-              <Settings size={14} /> <span className="hidden md:inline">Ajustes</span>
-            </button>
-
-            {/* Reset */}
-            <button
-              onClick={() => {
-                if (confirm('Deseja resetar as Trips e reabastecer o tanque para 100%?')) {
-                  setTrips({
-                    a: { active: false, paused: false, distance: 0, elapsedTime: 0, totalFuelConsumed: 0, speedSamples: [] },
-                    b: { active: false, paused: false, distance: 0, elapsedTime: 0, totalFuelConsumed: 0, speedSamples: [] },
-                  });
-                  setCarConfig((prev) => ({ ...prev, fuelLevel: 100 }));
-                }
-              }}
-              className="p-1.5 sm:px-2.5 sm:py-1 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl text-[10px] sm:text-xs font-extrabold flex items-center gap-1 transition-colors"
-              title="Resetar Trips / Reabastecer"
-            >
-              <RefreshCw size={14} /> <span className="hidden lg:inline">Reset</span>
-            </button>
-
             {/* HUD / Fullscreen toggle */}
             <button
               onClick={() => {
@@ -863,49 +810,120 @@ export default function App() {
             {/* Tank Metrics Grid */}
             <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 my-0">
               <div
-                className={`p-2.5 sm:p-3 rounded-xl text-center flex flex-col justify-center border ${
+                className={`p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center border ${
                   isReserveFuel
                     ? 'bg-red-950/30 border-red-500/50'
                     : 'bg-[#12121c] border-[#222232]'
                 }`}
               >
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
-                <div className={`text-2xl sm:text-3xl md:text-4xl font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
+                <div className={`text-xl sm:text-2xl font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
                   {currentLiters} L
                 </div>
-                <span className="text-xs text-zinc-300 font-extrabold mt-0.5">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
+                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
               </div>
 
               <div
-                className={`p-2.5 sm:p-3 rounded-xl text-center flex flex-col justify-center border ${
+                className={`p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center border ${
                   isReserveFuel
                     ? 'bg-red-500/20 border-red-500 shadow-md animate-pulse'
                     : 'bg-[#12121c] border-[#222232]'
                 }`}
               >
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-red-400">RESERVA</span>
-                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-red-400 mt-0.5">
-                  {isReserveFuel ? '⚠️ RESERVA' : `≤ ${reserveLiters} L`}
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-red-400">RESERVA</span>
+                <div className="text-xl sm:text-2xl font-black text-red-400 mt-0.5">
+                  {isReserveFuel ? '⚠️ EM RESERVA' : `≤ ${reserveLiters} L`}
                 </div>
-                <span className="text-xs text-zinc-300 font-extrabold mt-0.5">
+                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">
                   {isReserveFuel ? `${currentLiters}L ≤ ${reserveLiters}L` : `Limite ${reserveLiters} Litros`}
                 </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2.5 sm:p-3 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
-                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
-                <span className="text-xs text-zinc-300 font-extrabold mt-0.5">com {currentLiters} Litros</span>
+              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
+                <div className="text-xl sm:text-2xl font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
+                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">com {currentLiters} Litros</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2.5 sm:p-3 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
-                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
-                <span className="text-xs text-zinc-300 font-extrabold mt-0.5">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
+              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
+                <div className="text-xl sm:text-2xl font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
+                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Footer Bar for Hidden Controls */}
+        <footer className="flex flex-col sm:flex-row justify-between items-center px-3 py-2 bg-[#09090d] border border-[#1e1e28] rounded-2xl shadow-xl shrink-0 gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {/* GPS Status Indicator */}
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-black border uppercase tracking-wider ${
+                gpsState.active
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                  : 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  gpsState.active ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                }`}
+              />
+              {gpsState.statusText}
+            </div>
+
+            {/* Quick AI Photo */}
+            <button
+              onClick={() => setShowPhotoScanner(true)}
+              className="flex items-center gap-1 bg-[#c19a6b] hover:bg-[#a88255] text-black border border-[#c19a6b] px-2.5 py-1 text-[10px] sm:text-xs font-black rounded-xl uppercase tracking-wider transition-all active:scale-95 shadow-md"
+              title="Escanear foto do tanque com IA"
+            >
+              <Sparkles size={14} /> <span className="hidden sm:inline">IA Foto</span>
+            </button>
+
+            {/* Settings */}
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-1.5 sm:px-2.5 sm:py-1 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl text-[10px] sm:text-xs font-extrabold flex items-center gap-1 transition-colors"
+            >
+              <Settings size={14} /> <span className="hidden md:inline">Ajustes</span>
+            </button>
+
+            {/* Reset */}
+            <button
+              onClick={() => {
+                if (confirm('Deseja resetar as Trips e reabastecer o tanque para 100%?')) {
+                  setTrips({
+                    a: { active: false, paused: false, distance: 0, elapsedTime: 0, totalFuelConsumed: 0, speedSamples: [] },
+                    b: { active: false, paused: false, distance: 0, elapsedTime: 0, totalFuelConsumed: 0, speedSamples: [] },
+                  });
+                  setCarConfig((prev) => ({ ...prev, fuelLevel: 100 }));
+                }
+              }}
+              className="p-1.5 sm:px-2.5 sm:py-1 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl text-[10px] sm:text-xs font-extrabold flex items-center gap-1 transition-colors"
+              title="Resetar Trips / Reabastecer"
+            >
+              <RefreshCw size={14} /> <span className="hidden lg:inline">Reset</span>
+            </button>
+          </div>
+
+          {mode === 'simulated' && (
+            <div className="flex-1 w-full max-w-sm flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold whitespace-nowrap">
+                Simulador: <strong className="text-[#c19a6b]">{Math.round(simulatedSpeed)} km/h</strong>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="150"
+                value={simulatedSpeed}
+                onChange={(e) => handleSimulatedSpeedChange(Number(e.target.value))}
+                className="w-full cursor-pointer accent-[#c19a6b]"
+              />
+            </div>
+          )}
+        </footer>
       </div>
 
       {/* Settings Modal */}
