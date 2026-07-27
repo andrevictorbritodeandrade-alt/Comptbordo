@@ -144,6 +144,20 @@ export default function App() {
   const watchIdRef = useRef<number | null>(null);
   const lastPosRef = useRef<{ coords: GeolocationCoordinates; timestamp: number } | null>(null);
   const lastTimestampRef = useRef<number>(Date.now());
+  const middleColRef = useRef<HTMLDivElement>(null);
+
+  // Force scroll to top on initial page load / refresh / tab reopen
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    if (middleColRef.current) {
+      middleColRef.current.scrollTop = 0;
+    }
+  }, []);
 
   // GPS & Simulation Mode Handler
   useEffect(() => {
@@ -364,11 +378,14 @@ export default function App() {
         const newSamples = [...trip.speedSamples, currentSpeed];
         if (newSamples.length > 120) newSamples.shift();
 
+        const isMoving = currentSpeed > 0;
+
         return {
           ...prevTrips,
           [currentTripKey]: {
             ...trip,
-            elapsedTime: trip.elapsedTime + deltaSeconds,
+            // Tempo líquido de viagem: só incrementa quando o veículo estiver em movimento (velocidade > 0)
+            elapsedTime: isMoving ? trip.elapsedTime + deltaSeconds : trip.elapsedTime,
             distance: trip.distance + distanceAdded,
             totalFuelConsumed: trip.totalFuelConsumed + fuelUsed,
             speedSamples: newSamples,
@@ -654,7 +671,7 @@ export default function App() {
           </div>
 
           {/* Column 2: Trip Computer & Speed Telemetry Stock Chart (Col 5) */}
-          <div className="col-span-12 md:col-span-5 flex flex-col gap-2.5 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-y-auto custom-scrollbar">
+          <div ref={middleColRef} className="col-span-12 md:col-span-5 flex flex-col gap-2.5 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-y-auto custom-scrollbar">
             {/* Trip Tabs Switcher */}
             <div className="flex bg-[#050508] border border-[#1e1e28] rounded-xl p-1 shrink-0">
               {(['a', 'b'] as TripKey[]).map((k) => (
@@ -677,45 +694,54 @@ export default function App() {
             </div>
 
             {/* 4 Primary High-Visibility Trip Cards (Large Size) */}
-            <div className="grid grid-cols-2 gap-2 shrink-0 items-stretch">
-              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-3.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-1">
+            <div className="grid grid-cols-2 gap-2.5 shrink-0 items-stretch">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
                   DISTÂNCIA
                 </span>
-                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
                   {(activeTrip.distance / 1000).toFixed(1)}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-1">KM</span>
+                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">KM</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-3.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-1">
-                  TEMPO DECORRIDO
-                </span>
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b]">
+                    TEMPO LÍQUIDO
+                  </span>
+                  {speed === 0 && activeTrip.active && !activeTrip.paused && (
+                    <span className="text-[9px] font-black text-amber-400 bg-amber-500/15 border border-amber-500/40 px-1.5 py-0.2 rounded-full animate-pulse">
+                      PAUSADO
+                    </span>
+                  )}
+                </div>
+                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-none">
                   {formatTime(activeTrip.elapsedTime)}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-1">HH:MM:SS</span>
+                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">
+                  HH:MM:SS ({speed > 0 ? 'EM MOVIMENTO' : 'PARADO'})
+                </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-3.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-1">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
                   CONSUMO MÉDIO
                 </span>
-                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
                   {tripAvgCons}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-1">KM / L</span>
+                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">KM / L</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-3.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-1">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
                   VELOCIDADE MÉDIA
                 </span>
-                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
                   {tripAvgSpeed}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-1">KM / H</span>
+                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">KM / H</span>
               </div>
             </div>
 
