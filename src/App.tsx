@@ -243,17 +243,39 @@ export default function App() {
     setSpeed(val);
   };
 
-  // Main tick for fuel consumption and trip tracking
+  // Keep refs up-to-date for interval tick without causing effect recreation
+  const speedRef = useRef(speed);
   useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
+
+  const activeTripKeyRef = useRef(activeTripKey);
+  useEffect(() => {
+    activeTripKeyRef.current = activeTripKey;
+  }, [activeTripKey]);
+
+  const carConfigRef = useRef(carConfig);
+  useEffect(() => {
+    carConfigRef.current = carConfig;
+  }, [carConfig]);
+
+  // Main tick for fuel consumption and trip tracking - Runs smoothly without interval resets
+  useEffect(() => {
+    lastTimestampRef.current = Date.now();
+
     const interval = setInterval(() => {
       const now = Date.now();
       const deltaSeconds = (now - lastTimestampRef.current) / 1000;
       lastTimestampRef.current = now;
 
+      const currentSpeed = speedRef.current;
+      const currentTripKey = activeTripKeyRef.current;
+      const currentConfig = carConfigRef.current;
+
       // Fuel consumption rate simulation
-      if (speed > 0 && carConfig.fuelLevel > 0) {
-        const speedFactor = speed / 60;
-        const consumptionRate = 0.0006 * speedFactor * (deltaSeconds / 1);
+      if (currentSpeed > 0 && currentConfig.fuelLevel > 0) {
+        const speedFactor = currentSpeed / 60;
+        const consumptionRate = 0.0006 * speedFactor * deltaSeconds;
         setCarConfig((prev) => ({
           ...prev,
           fuelLevel: Math.max(0, prev.fuelLevel - consumptionRate),
@@ -262,35 +284,39 @@ export default function App() {
 
       // Update Active Trip
       setTrips((prevTrips) => {
-        const trip = prevTrips[activeTripKey];
+        const trip = prevTrips[currentTripKey];
         if (!trip.active || trip.paused) return prevTrips;
 
-        const speedMs = speed / 3.6;
+        const speedMs = currentSpeed / 3.6;
         const distanceAdded = speedMs * deltaSeconds;
 
         const baseConsumption =
-          carConfig.currentFuel === 'gasoline'
-            ? carConfig.avgConsumptionGasoline
-            : carConfig.avgConsumptionEthanol;
+          currentConfig.currentFuel === 'gasoline'
+            ? currentConfig.avgConsumptionGasoline
+            : currentConfig.avgConsumptionEthanol;
 
         const instantCons =
-          speed > 0
-            ? speed < 60
+          currentSpeed > 0
+            ? currentSpeed < 20
+              ? baseConsumption * 0.55
+              : currentSpeed < 40
               ? baseConsumption * 0.85
-              : speed < 110
-              ? baseConsumption * 1.15
-              : baseConsumption * 0.75
+              : currentSpeed <= 78
+              ? baseConsumption * 1.25 // Eco zone (~2500 RPM)
+              : currentSpeed <= 100
+              ? baseConsumption * 0.85 // High RPM (>80 km/h)
+              : baseConsumption * 0.70 // Very high RPM (>100 km/h)
             : 0;
 
         const fuelUsed =
           distanceAdded > 0 && instantCons > 0 ? distanceAdded / 1000 / instantCons : 0;
 
-        const newSamples = [...trip.speedSamples, speed];
+        const newSamples = [...trip.speedSamples, currentSpeed];
         if (newSamples.length > 120) newSamples.shift();
 
         return {
           ...prevTrips,
-          [activeTripKey]: {
+          [currentTripKey]: {
             ...trip,
             elapsedTime: trip.elapsedTime + deltaSeconds,
             distance: trip.distance + distanceAdded,
@@ -302,14 +328,7 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [
-    speed,
-    activeTripKey,
-    carConfig.currentFuel,
-    carConfig.avgConsumptionEthanol,
-    carConfig.avgConsumptionGasoline,
-    carConfig.fuelLevel,
-  ]);
+  }, []);
 
   const toggleTripState = () => {
     setTrips((prev) => {
@@ -382,11 +401,13 @@ export default function App() {
       ? 0
       : speed < 20
       ? baseConsumption * 0.55
-      : speed < 60
-      ? baseConsumption * 0.95
-      : speed < 95
-      ? baseConsumption * 1.25
-      : baseConsumption * 0.85;
+      : speed < 40
+      ? baseConsumption * 0.85
+      : speed <= 78
+      ? baseConsumption * 1.25 // Zona Verde Eco (~2500 RPM)
+      : speed <= 100
+      ? baseConsumption * 0.85 // Acima de 80 km/h (Alto consumo)
+      : baseConsumption * 0.70;
 
   const currentLiters = ((carConfig.tankCapacity * carConfig.fuelLevel) / 100).toFixed(1);
   const autonomy = Math.round(Number(currentLiters) * baseConsumption);
