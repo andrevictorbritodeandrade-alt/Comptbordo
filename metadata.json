@@ -1,0 +1,6 @@
+{
+  "name": "Computador de Bordo & Velocímetro GPS",
+  "description": "Velocímetro GPS em tempo real e computador de bordo automotivo com medição de consumo, autonomia e dados de viagem (Trip A/B).",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
