@@ -42,8 +42,8 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
   const rotationRef = useRef<number>(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  // Estimate RPM for Renault Clio 1.0 16V in 5th gear (approx 70 km/h = 2500 RPM)
-  const estimatedRpm = speed > 0 ? Math.min(6500, Math.max(850, Math.round((speed / 70) * 2500))) : 0;
+  // Estimate RPM for Renault Clio 1.0 16V in 5th gear (65 km/h = 2500 RPM)
+  const estimatedRpm = speed > 0 ? Math.min(6500, Math.max(850, Math.round((speed / 65) * 2500))) : 0;
 
   // Determine speed state
   const isEco = speed >= 40 && speed <= (speedLimit - 2);

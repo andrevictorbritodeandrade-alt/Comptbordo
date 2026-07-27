@@ -13,7 +13,9 @@ import {
   Gauge,
   Compass,
   Maximize2,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  Fuel
 } from 'lucide-react';
 import { SpeedCanvas } from './components/SpeedCanvas';
 import { FuelGaugeCanvas } from './components/FuelGaugeCanvas';
@@ -22,6 +24,8 @@ import { SpeedStockChart } from './components/SpeedStockChart';
 import { OdometerDisplay } from './components/OdometerDisplay';
 import { SettingsModal } from './components/SettingsModal';
 import { FuelPhotoScannerModal } from './components/FuelPhotoScannerModal';
+import { QuickRefuelModal } from './components/QuickRefuelModal';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { CarConfig, TripsState, TripKey, OperatingMode, GpsState } from './types';
 
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -89,6 +93,7 @@ export default function App() {
   const [speedLimit, setSpeedLimit] = useState<number>(80);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showPhotoScanner, setShowPhotoScanner] = useState<boolean>(false);
+  const [showQuickRefuelModal, setShowQuickRefuelModal] = useState<boolean>(false);
   const [gpsDenied, setGpsDenied] = useState<boolean>(false);
   const [hudMode, setHudMode] = useState<boolean>(false);
 
@@ -259,6 +264,22 @@ export default function App() {
       ...prev,
       totalOdometerKm: newKm,
     }));
+  };
+
+  const handleQuickRefuel = (additionalLiters: number, fullTank?: boolean) => {
+    setCarConfig((prev) => {
+      let newFuelLevel = 100;
+      if (!fullTank) {
+        const currentLiters = (prev.tankCapacity * prev.fuelLevel) / 100;
+        const targetLiters = Math.min(prev.tankCapacity, currentLiters + additionalLiters);
+        newFuelLevel = (targetLiters / prev.tankCapacity) * 100;
+      }
+      return {
+        ...prev,
+        fuelLevel: Math.min(100, Math.max(0, newFuelLevel)),
+      };
+    });
+    setShowQuickRefuelModal(false);
   };
 
   // Keep refs up-to-date for interval tick without causing effect recreation
@@ -543,6 +564,9 @@ export default function App() {
               {gpsState.statusText}
             </div>
 
+            {/* PWA Install Button */}
+            <PwaInstallPrompt />
+
             {/* Quick AI Photo */}
             <button
               onClick={() => setShowPhotoScanner(true)}
@@ -630,7 +654,7 @@ export default function App() {
           </div>
 
           {/* Column 2: Trip Computer & Speed Telemetry Stock Chart (Col 5) */}
-          <div className="col-span-12 md:col-span-5 flex flex-col justify-between gap-2 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-y-auto custom-scrollbar">
+          <div className="col-span-12 md:col-span-5 flex flex-col gap-2.5 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-y-auto custom-scrollbar">
             {/* Trip Tabs Switcher */}
             <div className="flex bg-[#050508] border border-[#1e1e28] rounded-xl p-1 shrink-0">
               {(['a', 'b'] as TripKey[]).map((k) => (
@@ -652,70 +676,47 @@ export default function App() {
               ))}
             </div>
 
-            {/* 4 Large High-Visibility Metric Cards */}
-            <div className="grid grid-cols-2 gap-2 shrink-0 my-0.5 items-stretch">
-              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-2.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+            {/* 4 Primary High-Visibility Trip Cards (Large Size) */}
+            <div className="grid grid-cols-2 gap-2 shrink-0 items-stretch">
+              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-3.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-1">
                   DISTÂNCIA
                 </span>
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
                   {(activeTrip.distance / 1000).toFixed(1)}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-1">KM</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-2.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-3.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-1">
                   TEMPO DECORRIDO
                 </span>
-                <div className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none">
+                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
                   {formatTime(activeTrip.elapsedTime)}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">HH:MM:SS</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-1">HH:MM:SS</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-2.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-3.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-1">
                   CONSUMO MÉDIO
                 </span>
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
                   {tripAvgCons}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / L</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-1">KM / L</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-2.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-3.5 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-1">
                   VELOCIDADE MÉDIA
                 </span>
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
                   {tripAvgSpeed}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / H</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-1">KM / H</span>
               </div>
-            </div>
-
-            {/* B3 Stock Market Style Speed Chart (Gráfico de Bolsa de Valores) */}
-            <div className="shrink-0">
-              <SpeedStockChart
-                speedSamples={activeTrip.speedSamples}
-                currentSpeed={speed}
-                avgSpeed={Number(tripAvgSpeed) || 0}
-                speedLimit={speedLimit}
-              />
-            </div>
-
-            {/* Instant Consumption */}
-            <div className="bg-[#12121c] border border-[#222232] px-3 py-1.5 rounded-2xl shrink-0">
-              <div className="flex justify-between items-center mb-0.5">
-                <span className="text-xs font-black uppercase tracking-wider text-zinc-300">
-                  CONSUMO INSTANTÂNEO
-                </span>
-                <span className="text-base sm:text-lg font-black text-[#c19a6b]">
-                  {instantConsumption.toFixed(1)} <span className="text-xs font-extrabold text-zinc-400">KM/L</span>
-                </span>
-              </div>
-              <InstantConsumptionCanvas instantConsumption={instantConsumption} />
             </div>
 
             {/* Trip Action Buttons */}
@@ -742,6 +743,35 @@ export default function App() {
                 <RotateCcw size={18} /> ZERAR TRIP
               </button>
             </div>
+
+            {/* Instant Consumption */}
+            <div className="bg-[#12121c] border border-[#222232] px-3 py-2 rounded-2xl shrink-0">
+              <div className="flex justify-between items-center mb-0.5">
+                <span className="text-xs font-black uppercase tracking-wider text-zinc-300">
+                  CONSUMO INSTANTÂNEO
+                </span>
+                <span className="text-base sm:text-lg font-black text-[#c19a6b]">
+                  {instantConsumption.toFixed(1)} <span className="text-xs font-extrabold text-zinc-400">KM/L</span>
+                </span>
+              </div>
+              <InstantConsumptionCanvas instantConsumption={instantConsumption} />
+            </div>
+
+            {/* Scroll Indicator Badge */}
+            <div className="flex items-center justify-center gap-2 py-1.5 px-3 text-[10px] font-black uppercase text-[#c19a6b] bg-[#14141f] border border-[#2a2a3e] rounded-xl shrink-0 my-0.5">
+              <span>Deslize a coluna para ver Telemetria (B3)</span>
+              <ChevronDown size={14} className="animate-bounce text-[#c19a6b]" />
+            </div>
+
+            {/* B3 Stock Market Style Speed Chart (Gráfico de Bolsa de Valores) */}
+            <div className="shrink-0 pt-1">
+              <SpeedStockChart
+                speedSamples={activeTrip.speedSamples}
+                currentSpeed={speed}
+                avgSpeed={Number(tripAvgSpeed) || 0}
+                speedLimit={speedLimit}
+              />
+            </div>
           </div>
 
           {/* Column 3: Renault Clio Fuel Gauge & Tank Info (Col 3) */}
@@ -766,13 +796,21 @@ export default function App() {
               </span>
             </div>
 
-            {/* AI Photo Scan Callout */}
-            <button
-              onClick={() => setShowPhotoScanner(true)}
-              className="w-full py-1.5 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95 shadow-sm"
-            >
-              <Sparkles size={14} className="text-[#c19a6b]" /> Escanear Foto do Tanque
-            </button>
+            {/* Refuel & Photo Scan Action Buttons */}
+            <div className="grid grid-cols-2 gap-1.5 shrink-0">
+              <button
+                onClick={() => setShowQuickRefuelModal(true)}
+                className="py-1.5 px-2 bg-[#1b1b2a] hover:bg-[#25253b] text-amber-400 border border-amber-500/40 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
+              >
+                <Fuel size={14} className="text-amber-400" /> Abastecer
+              </button>
+              <button
+                onClick={() => setShowPhotoScanner(true)}
+                className="py-1.5 px-2 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
+              >
+                <Sparkles size={14} className="text-[#c19a6b]" /> Escanear
+              </button>
+            </div>
 
             {/* Dial Canvas */}
             <div className="flex justify-center items-center relative shrink-0 my-0.5">
@@ -863,6 +901,15 @@ export default function App() {
           setCarConfig((prev) => ({ ...prev, fuelLevel: percentage }));
         }}
       />
+
+      {/* Quick Refuel Modal */}
+      {showQuickRefuelModal && (
+        <QuickRefuelModal
+          carConfig={carConfig}
+          onRefuel={handleQuickRefuel}
+          onClose={() => setShowQuickRefuelModal(false)}
+        />
+      )}
     </div>
   );
 }
