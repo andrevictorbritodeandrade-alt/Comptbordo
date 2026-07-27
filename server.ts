@@ -46,7 +46,7 @@ async function startServer() {
             },
           },
           {
-            text: "Examine a foto do painel de instrumentos do veículo/marcador de combustível. Identifique onde está apontando o ponteiro de combustível (0% = totalmente vazio/reserva, 25% = 1/4, 50% = 1/2, 75% = 3/4, 100% = 1/1 cheio) ou a quantidade informada digitalmente. Estime o valor numérico percentual exato (0 a 100) e faça uma descrição curta em português do que visualizou.",
+            text: "Examine a foto do painel de instrumentos do veículo/marcador de combustível (ex: Renault Clio, Fiat, VW, etc). Identifique a posição exata do ponteiro (0% = totalmente vazio/reserva R, 25% = 1/4 ou 2º traço acima do R, 50% = 1/2, 75% = 3/4, 100% = 1/1 cheio). No Renault Clio, o 2º traço/marcação acima do R com quadradinho vermelho corresponde a aproximadamente 23.5% a 25% do tanque (~11.8 a 12.5 litros num tanque de 50L). Estime a porcentagem exata do combustível (0 a 100) e forneça uma descrição em português do marcador observado.",
           },
         ],
         config: {

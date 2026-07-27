@@ -36,15 +36,32 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 };
 
+const STORAGE_KEY = 'clio_dashboard_telemetry_v1';
+
+const getSavedState = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.error('Erro ao ler estado do localStorage', e);
+  }
+  return null;
+};
+
 export default function App() {
-  const [carConfig, setCarConfig] = useState<CarConfig>({
-    model: 'Renault Clio',
-    details: '2010 1.0 16V Hi-Flex',
-    tankCapacity: 50,
-    currentFuel: 'gasoline',
-    fuelLevel: 45, // %
-    avgConsumptionGasoline: 12.6,
-    avgConsumptionEthanol: 8.9,
+  const savedState = useRef(getSavedState()).current;
+
+  const [carConfig, setCarConfig] = useState<CarConfig>(() => {
+    if (savedState?.carConfig) return savedState.carConfig;
+    return {
+      model: 'Renault Clio',
+      details: '2010 1.0 16V Hi-Flex',
+      tankCapacity: 50,
+      currentFuel: 'gasoline',
+      fuelLevel: 23.5, // 2 traços acima da Reserva R = ~23.5% (~11.8 L de 50L) - Exato da foto!
+      avgConsumptionGasoline: 12.6,
+      avgConsumptionEthanol: 8.9,
+    };
   });
 
   const [speed, setSpeed] = useState<number>(0);
@@ -55,32 +72,56 @@ export default function App() {
     sourceText: '📍 Aguardando seleção de modo...',
   });
 
-  const [mode, setMode] = useState<OperatingMode>('pending');
+  const [mode, setMode] = useState<OperatingMode>(() => {
+    if (savedState?.mode && savedState.mode !== 'pending') return savedState.mode;
+    return 'pending';
+  });
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showPhotoScanner, setShowPhotoScanner] = useState<boolean>(false);
   const [gpsDenied, setGpsDenied] = useState<boolean>(false);
   const [hudMode, setHudMode] = useState<boolean>(false);
 
   // Trip State
-  const [activeTripKey, setActiveTripKey] = useState<TripKey>('a');
-  const [trips, setTrips] = useState<TripsState>({
-    a: {
-      active: false,
-      paused: false,
-      distance: 0,
-      elapsedTime: 0,
-      totalFuelConsumed: 0,
-      speedSamples: [],
-    },
-    b: {
-      active: false,
-      paused: false,
-      distance: 0,
-      elapsedTime: 0,
-      totalFuelConsumed: 0,
-      speedSamples: [],
-    },
+  const [activeTripKey, setActiveTripKey] = useState<TripKey>(() => {
+    if (savedState?.activeTripKey) return savedState.activeTripKey;
+    return 'a';
   });
+  const [trips, setTrips] = useState<TripsState>(() => {
+    if (savedState?.trips) return savedState.trips;
+    return {
+      a: {
+        active: false,
+        paused: false,
+        distance: 0,
+        elapsedTime: 0,
+        totalFuelConsumed: 0,
+        speedSamples: [],
+      },
+      b: {
+        active: false,
+        paused: false,
+        distance: 0,
+        elapsedTime: 0,
+        totalFuelConsumed: 0,
+        speedSamples: [],
+      },
+    };
+  });
+
+  // Save telemetry state to localStorage cache whenever changed
+  useEffect(() => {
+    try {
+      const payload = {
+        carConfig,
+        activeTripKey,
+        trips,
+        mode,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.error('Erro ao salvar estado no localStorage', e);
+    }
+  }, [carConfig, activeTripKey, trips, mode]);
 
   // References for GPS & simulation
   const simulationRef = useRef<NodeJS.Timeout | null>(null);
@@ -349,6 +390,7 @@ export default function App() {
 
   const currentLiters = ((carConfig.tankCapacity * carConfig.fuelLevel) / 100).toFixed(1);
   const autonomy = Math.round(Number(currentLiters) * baseConsumption);
+  const fullTankAutonomy = Math.round(carConfig.tankCapacity * baseConsumption);
   const reserveLiters = (carConfig.tankCapacity * 0.1).toFixed(1);
 
   return (
@@ -655,18 +697,27 @@ export default function App() {
             {/* Tank Metrics Grid */}
             <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 my-0.5">
               <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-300">CAPACIDADE</span>
-                <div className="text-lg sm:text-xl font-black text-white mt-0.5">{carConfig.tankCapacity} L</div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
+                <div className="text-lg sm:text-xl font-black text-white mt-0.5">{currentLiters} L</div>
+                <span className="text-[9px] text-zinc-400 font-bold">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
               </div>
 
               <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center flex flex-col justify-center">
                 <span className="text-[10px] font-black uppercase tracking-wider text-red-400">RESERVA</span>
                 <div className="text-lg sm:text-xl font-black text-red-400 mt-0.5">~{reserveLiters} L</div>
+                <span className="text-[9px] text-zinc-400 font-bold">Reserva (R)</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center col-span-2 flex flex-col justify-center">
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ESTIMADA</span>
-                <div className="text-2xl font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
+              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center flex flex-col justify-center">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
+                <div className="text-xl sm:text-2xl font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
+                <span className="text-[9px] text-zinc-400 font-bold">com {currentLiters} Litros</span>
+              </div>
+
+              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center flex flex-col justify-center">
+                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-300">TANQUE CHEIO</span>
+                <div className="text-xl sm:text-2xl font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
+                <span className="text-[9px] text-zinc-400 font-bold">50L @ {baseConsumption} km/L</span>
               </div>
             </div>
 
