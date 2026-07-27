@@ -42,9 +42,77 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rotationRef = useRef<number>(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const engineOscRef = useRef<OscillatorNode | null>(null);
+  const engineGainRef = useRef<GainNode | null>(null);
 
   // Estimate RPM for Renault Clio 1.0 16V in 5th gear (65 km/h = 2500 RPM)
   const estimatedRpm = speed > 0 ? Math.min(6500, Math.max(850, Math.round((speed / 65) * 2500))) : 0;
+
+  // Engine Sound Effect
+  useEffect(() => {
+    if (!soundEnabled) {
+      if (engineOscRef.current) {
+        engineOscRef.current.stop();
+        engineOscRef.current.disconnect();
+        engineOscRef.current = null;
+      }
+      if (engineGainRef.current) {
+        engineGainRef.current.disconnect();
+        engineGainRef.current = null;
+      }
+      return;
+    }
+
+    try {
+      if (!audioCtxRef.current) {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        audioCtxRef.current = new AudioCtx();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      if (!engineOscRef.current) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle'; // Smoother than sawtooth
+
+        // Low pass filter to muffle the sound and make it more like a real engine hum
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 180;
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+        engineOscRef.current = osc;
+        engineGainRef.current = gain;
+      }
+    } catch (e) {
+      console.warn('Erro na síntese de áudio do motor:', e);
+    }
+  }, [soundEnabled]);
+
+  // Update engine pitch/volume based on speed
+  useEffect(() => {
+    if (engineOscRef.current && engineGainRef.current && audioCtxRef.current && soundEnabled) {
+      const ctx = audioCtxRef.current;
+      // Idle freq ~ 45Hz. Increases slightly with speed.
+      const baseFreq = 45;
+      const targetFreq = baseFreq + (speed * 0.8);
+      
+      // Volume lower at idle, increases with speed
+      const targetVol = speed === 0 ? 0.1 : Math.min(0.25, 0.1 + (speed * 0.0015));
+
+      engineOscRef.current.frequency.setTargetAtTime(targetFreq, ctx.currentTime, 0.1);
+      engineGainRef.current.gain.setTargetAtTime(targetVol, ctx.currentTime, 0.1);
+    }
+  }, [speed, soundEnabled]);
 
   // Determine speed state
   const isEco = speed >= 40 && speed <= (speedLimit - 2);

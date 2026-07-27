@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Settings,
   RotateCcw,
@@ -102,6 +102,15 @@ export default function App() {
   const [showQuickRefuelModal, setShowQuickRefuelModal] = useState<boolean>(false);
   const [gpsDenied, setGpsDenied] = useState<boolean>(false);
   const [hudMode, setHudMode] = useState<boolean>(false);
+  
+  const [prevSpeed, setPrevSpeed] = useState<number>(0);
+  const [instantConsumption, setInstantConsumption] = useState<number>(0);
+  const instantConsumptionRef = useRef<number>(0);
+
+  // Sync state to ref
+  useEffect(() => {
+    instantConsumptionRef.current = instantConsumption;
+  }, [instantConsumption]);
 
   // Trip State
   const [activeTripKey, setActiveTripKey] = useState<TripKey>(() => {
@@ -145,12 +154,71 @@ export default function App() {
     }
   }, [carConfig, activeTripKey, trips, mode]);
 
+  // Dynamic Instant Consumption Calculation (Oscillating with Acceleration/Deceleration)
+  useEffect(() => {
+    const accel = speed - prevSpeed;
+    setPrevSpeed(speed);
+
+    const base = carConfig.currentFuel === 'gasoline' 
+      ? carConfig.avgConsumptionGasoline 
+      : carConfig.avgConsumptionEthanol;
+
+    let cons = 0;
+    
+    if (speed > 0) {
+      let idealCons = base;
+      if (speed < 20) idealCons = base * 0.55;
+      else if (speed < 40) idealCons = base * 0.85;
+      else if (speed <= 78) idealCons = base * 1.25;
+      else if (speed <= 100) idealCons = base * 0.85;
+      else idealCons = base * 0.70;
+
+      if (accel > 1) {
+        // Accelerating hard: lower km/l (worse performance)
+        cons = idealCons * Math.max(0.2, 1 - accel * 0.15);
+      } else if (accel < -1) {
+        // Decelerating/Engine Brake: high km/l (great performance)
+        cons = idealCons * Math.min(4.0, 1 + Math.abs(accel) * 0.4);
+      } else {
+        // Constant speed or slight variation: minor oscillation
+        cons = idealCons * (0.95 + Math.random() * 0.1);
+      }
+    }
+    
+    if (cons > 99.9) cons = 99.9;
+    setInstantConsumption(cons);
+  }, [speed, carConfig.currentFuel, carConfig.avgConsumptionGasoline, carConfig.avgConsumptionEthanol]);
+
   // References for GPS & simulation
   const simulationRef = useRef<NodeJS.Timeout | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const lastPosRef = useRef<{ coords: GeolocationCoordinates; timestamp: number } | null>(null);
   const lastTimestampRef = useRef<number>(Date.now());
   const middleColRef = useRef<HTMLDivElement>(null);
+  const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+
+  // Handle scroll events for middle column
+  const handleMiddleColumnScroll = useCallback(() => {
+    if (middleColRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = middleColRef.current;
+      // Hide indicator if scrolled down by more than 20px, or if no scroll space
+      if (scrollTop > 20 || scrollHeight <= clientHeight) {
+        setShowScrollIndicator(false);
+      } else {
+        setShowScrollIndicator(true);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const col = middleColRef.current;
+    if (col) {
+      col.addEventListener('scroll', handleMiddleColumnScroll, { passive: true });
+      // Initial check
+      handleMiddleColumnScroll();
+      return () => col.removeEventListener('scroll', handleMiddleColumnScroll);
+    }
+  }, [handleMiddleColumnScroll, mode]); // Re-check when mode changes which might affect layout
 
   // Force scroll to top on initial page load / refresh / tab reopen
   useEffect(() => {
@@ -360,23 +428,7 @@ export default function App() {
         const speedMs = currentSpeed / 3.6;
         const distanceAdded = speedMs * deltaSeconds;
 
-        const baseConsumption =
-          currentConfig.currentFuel === 'gasoline'
-            ? currentConfig.avgConsumptionGasoline
-            : currentConfig.avgConsumptionEthanol;
-
-        const instantCons =
-          currentSpeed > 0
-            ? currentSpeed < 20
-              ? baseConsumption * 0.55
-              : currentSpeed < 40
-              ? baseConsumption * 0.85
-              : currentSpeed <= 78
-              ? baseConsumption * 1.25 // Eco zone (~2500 RPM)
-              : currentSpeed <= 100
-              ? baseConsumption * 0.85 // High RPM (>80 km/h)
-              : baseConsumption * 0.70 // Very high RPM (>100 km/h)
-            : 0;
+        const instantCons = instantConsumptionRef.current;
 
         const fuelUsed =
           distanceAdded > 0 && instantCons > 0 ? distanceAdded / 1000 / instantCons : 0;
@@ -468,19 +520,6 @@ export default function App() {
     carConfig.currentFuel === 'gasoline'
       ? carConfig.avgConsumptionGasoline
       : carConfig.avgConsumptionEthanol;
-
-  const instantConsumption =
-    speed === 0
-      ? 0
-      : speed < 20
-      ? baseConsumption * 0.55
-      : speed < 40
-      ? baseConsumption * 0.85
-      : speed <= 78
-      ? baseConsumption * 1.25 // Zona Verde Eco (~2500 RPM)
-      : speed <= 100
-      ? baseConsumption * 0.85 // Acima de 80 km/h (Alto consumo)
-      : baseConsumption * 0.70;
 
   const currentLitersNum = (carConfig.tankCapacity * carConfig.fuelLevel) / 100;
   const currentLiters = currentLitersNum.toFixed(1);
@@ -588,13 +627,12 @@ export default function App() {
           </div>
         </header>
 
-        {/* Main Scrollable Dashboard Layout */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-4 p-2 sm:p-4">
-          
-          {/* Screen 1: Speedometer & Odometer (Takes full viewport height) */}
-          <div className="flex flex-col gap-3 min-h-[calc(100dvh-140px)] justify-center">
-            {/* Speedometer Gauge (Takes most of the space) */}
-            <div className="flex-1 min-h-[400px] flex flex-col">
+        {/* Dashboard Grid - Fitted 100% vertically, No Scrolling */}
+        <div className="grid grid-cols-12 gap-2 flex-1 min-h-0 h-full overflow-hidden">
+          {/* Column 1: Speedometer Gauge & Total Odometer (Col 4) */}
+          <div className="col-span-12 md:col-span-4 flex flex-col gap-2 h-full min-h-0 justify-between">
+            {/* Speedometer Gauge */}
+            <div className="flex-1 min-h-0 flex flex-col">
               <SpeedCanvas
                 speed={speed}
                 textSource={gpsState.sourceText}
@@ -616,8 +654,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Screen 2: Trip Computer & Speed Telemetry Stock Chart */}
-          <div ref={middleColRef} className="flex flex-col gap-2.5 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl mt-4">
+          {/* Column 2: Trip Computer & Speed Telemetry Stock Chart (Col 5) */}
+          <div ref={middleColRef} className="col-span-12 md:col-span-5 flex flex-col gap-2.5 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-y-auto custom-scrollbar overscroll-contain pb-6 sm:pb-4 relative">
             {/* Trip Tabs Switcher */}
             <div className="flex bg-[#050508] border border-[#1e1e28] rounded-xl p-1 shrink-0">
               {(['a', 'b'] as TripKey[]).map((k) => (
@@ -639,55 +677,55 @@ export default function App() {
               ))}
             </div>
 
-            {/* 4 Primary High-Visibility Trip Cards (Large Size) */}
+            {/* 4 Primary High-Visibility Trip Cards */}
             <div className="grid grid-cols-2 gap-2.5 shrink-0 items-stretch">
-              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wider text-[#c19a6b] mb-2 leading-tight">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
                   DISTÂNCIA
                 </span>
-                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-white tracking-tight leading-none mb-1">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
                   {(activeTrip.distance / 1000).toFixed(1)}
                 </div>
-                <span className="text-sm font-black text-zinc-400 uppercase">KM</span>
+                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">KM</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <div className="flex flex-col items-center gap-1 mb-2">
-                  <span className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wider text-[#c19a6b] leading-tight">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b]">
                     TEMPO LÍQUIDO
                   </span>
                   {speed === 0 && activeTrip.active && !activeTrip.paused && (
-                    <span className="text-[10px] font-black text-amber-400 bg-amber-500/15 border border-amber-500/40 px-2 py-0.5 rounded-full animate-pulse">
+                    <span className="text-[9px] font-black text-amber-400 bg-amber-500/15 border border-amber-500/40 px-1.5 py-0.2 rounded-full animate-pulse">
                       PAUSADO
                     </span>
                   )}
                 </div>
-                <div className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-none mb-1">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-none">
                   {formatTime(activeTrip.elapsedTime)}
                 </div>
-                <span className="text-sm font-black text-zinc-400 uppercase text-center leading-tight">
-                  ({speed > 0 ? 'EM MOVIMENTO' : 'PARADO'})
+                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">
+                  HH:MM:SS ({speed > 0 ? 'EM MOVIMENTO' : 'PARADO'})
                 </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wider text-[#c19a6b] mb-2 leading-tight">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
                   CONSUMO MÉDIO
                 </span>
-                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-white tracking-tight leading-none mb-1">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
                   {tripAvgCons}
                 </div>
-                <span className="text-sm font-black text-zinc-400 uppercase">KM / L</span>
+                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">KM / L</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wider text-[#c19a6b] mb-2 leading-tight">
-                  VELOCIDADE MÉD.
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
+                  VELOCIDADE MÉDIA
                 </span>
-                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-white tracking-tight leading-none mb-1">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
                   {tripAvgSpeed}
                 </div>
-                <span className="text-sm font-black text-zinc-400 uppercase">KM / H</span>
+                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">KM / H</span>
               </div>
             </div>
 
@@ -729,6 +767,16 @@ export default function App() {
               <InstantConsumptionCanvas instantConsumption={instantConsumption} />
             </div>
 
+            {/* Scroll Indicator Badge */}
+            <div 
+              className={`flex items-center justify-center gap-2 py-2 px-4 text-[10px] font-black uppercase text-[#c19a6b] bg-[#14141f]/90 backdrop-blur-sm border border-[#2a2a3e] rounded-xl shrink-0 mt-1 mb-2 shadow-2xl transition-all duration-500 z-10 mx-auto w-11/12 max-w-sm sticky bottom-2 ${
+                showScrollIndicator ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+              }`}
+            >
+              <span>Deslize para ver Telemetria</span>
+              <ChevronDown size={14} className="animate-bounce text-[#c19a6b]" />
+            </div>
+
             {/* B3 Stock Market Style Speed Chart (Gráfico de Bolsa de Valores) */}
             <div className="shrink-0 pt-1">
               <SpeedStockChart
@@ -740,9 +788,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* Screen 3: Renault Clio Fuel Gauge & Tank Info */}
+          {/* Column 3: Renault Clio Fuel Gauge & Tank Info (Col 3) */}
           <div
-            className={`flex flex-col justify-between gap-2 bg-[#09090d] border rounded-2xl p-2.5 sm:p-3 shadow-xl mt-4 transition-colors ${
+            className={`col-span-12 md:col-span-3 flex flex-col justify-between gap-2 h-full min-h-0 border rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-hidden transition-colors ${
               isReserveFuel
                 ? 'bg-[#150a0a] border-red-500/60 shadow-red-950/40'
                 : 'bg-[#09090d] border-[#1e1e28]'
@@ -803,46 +851,45 @@ export default function App() {
             {/* Tank Metrics Grid */}
             <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 my-0">
               <div
-                className={`p-3 sm:p-4 rounded-xl text-center flex flex-col justify-center border ${
+                className={`p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center border ${
                   isReserveFuel
                     ? 'bg-red-950/30 border-red-500/50'
                     : 'bg-[#12121c] border-[#222232]'
                 }`}
               >
-                <span className="text-sm sm:text-base font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
-                <div className={`text-4xl sm:text-5xl font-black mt-1 mb-1 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
+                <div className={`text-xl sm:text-2xl font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
                   {currentLiters} L
                 </div>
-                <span className="text-xs text-zinc-400 font-bold leading-tight">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
+                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
               </div>
 
               <div
-                className={`p-3 sm:p-4 rounded-xl text-center flex flex-col justify-center border ${
+                className={`p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center border ${
                   isReserveFuel
                     ? 'bg-red-500/20 border-red-500 shadow-md animate-pulse'
                     : 'bg-[#12121c] border-[#222232]'
                 }`}
               >
-                <span className="text-sm sm:text-base font-black uppercase tracking-wider text-red-400">RESERVA</span>
-                <div className="text-4xl sm:text-5xl font-black text-red-400 mt-1 mb-1 flex items-baseline justify-center gap-1">
-                  {isReserveFuel ? '⚠️ ' : '≤ '}
-                  {reserveLiters} <span className="text-2xl">L</span>
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-red-400">RESERVA</span>
+                <div className="text-xl sm:text-2xl font-black text-red-400 mt-0.5">
+                  {isReserveFuel ? '⚠️ EM RESERVA' : `≤ ${reserveLiters} L`}
                 </div>
-                <span className="text-xs text-zinc-400 font-bold leading-tight">
+                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">
                   {isReserveFuel ? `${currentLiters}L ≤ ${reserveLiters}L` : `Limite ${reserveLiters} Litros`}
                 </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-4 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-sm sm:text-base font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
-                <div className="text-4xl sm:text-5xl font-black text-[#c19a6b] mt-1 mb-1">{autonomy} KM</div>
-                <span className="text-xs text-zinc-400 font-bold leading-tight">com {currentLiters} Litros</span>
+              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
+                <div className="text-xl sm:text-2xl font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
+                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">com {currentLiters} Litros</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-4 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-sm sm:text-base font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
-                <div className="text-4xl sm:text-5xl font-black text-white mt-1 mb-1">{fullTankAutonomy} KM</div>
-                <span className="text-xs text-zinc-400 font-bold leading-tight">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
+              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
+                <div className="text-xl sm:text-2xl font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
+                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
               </div>
             </div>
           </div>

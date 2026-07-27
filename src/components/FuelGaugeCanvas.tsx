@@ -184,20 +184,20 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     ctx.textAlign = 'center';
     if (isReserve) {
       ctx.fillStyle = '#f87171';
-      ctx.font = '900 24px "Outfit", sans-serif';
-      ctx.fillText(`${currentLiters} L  R`, cx, cy + 20);
+      ctx.font = '900 18px "Outfit", sans-serif';
+      ctx.fillText(`${currentLiters} L  R`, cx, cy + 18);
     } else {
       ctx.fillStyle = '#ffffff';
-      ctx.font = '900 24px "Outfit", sans-serif';
-      ctx.fillText(`${currentLiters} L`, cx, cy + 20);
+      ctx.font = '900 18px "Outfit", sans-serif';
+      ctx.fillText(`${currentLiters} L`, cx, cy + 18);
     }
 
     ctx.fillStyle = isReserve ? '#ef4444' : '#cbd5e1';
-    ctx.font = '800 12px "Outfit", sans-serif';
+    ctx.font = '800 10.5px "Outfit", sans-serif';
     if (isReserve) {
-      ctx.fillText(`⚠️ RESERVA (≤ ${resLiters.toFixed(1)} L)`, cx, cy + 50);
+      ctx.fillText(`⚠️ RESERVA (≤ ${resLiters.toFixed(1)} L)`, cx, cy + 40);
     } else {
-      ctx.fillText(`de ${tankCapacity} L (${Math.round(fuelLevel)}%)`, cx, cy + 50);
+      ctx.fillText(`de ${tankCapacity} L (${Math.round(fuelLevel)}%)`, cx, cy + 40);
     }
 
     ctx.restore();
