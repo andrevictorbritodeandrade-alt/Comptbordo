@@ -9,6 +9,7 @@ interface SpeedCanvasProps {
   onSimulatedSpeedChange?: (speed: number) => void;
   speedLimit?: number;
   onSpeedLimitChange?: (limit: number) => void;
+  soundEnabled?: boolean;
 }
 
 export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
@@ -19,9 +20,9 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
   onSimulatedSpeedChange,
   speedLimit: externalSpeedLimit,
   onSpeedLimitChange,
+  soundEnabled = true,
 }) => {
   const [speedLimit, setSpeedLimit] = useState<number>(externalSpeedLimit ?? 80);
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
   // Sync internal state if external prop changes
   useEffect(() => {

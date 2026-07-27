@@ -15,7 +15,12 @@ import {
   Maximize2,
   Sparkles,
   ChevronDown,
-  Fuel
+  Fuel,
+  Volume2,
+  VolumeX,
+  Plus,
+  Minus,
+  AlertTriangle
 } from 'lucide-react';
 import { SpeedCanvas } from './components/SpeedCanvas';
 import { FuelGaugeCanvas } from './components/FuelGaugeCanvas';
@@ -91,6 +96,7 @@ export default function App() {
     return 'pending';
   });
   const [speedLimit, setSpeedLimit] = useState<number>(80);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showPhotoScanner, setShowPhotoScanner] = useState<boolean>(false);
   const [showQuickRefuelModal, setShowQuickRefuelModal] = useState<boolean>(false);
@@ -582,11 +588,13 @@ export default function App() {
           </div>
         </header>
 
-        {/* Dashboard Grid - Fitted 100% vertically, No Scrolling */}
-        <div className="grid grid-cols-12 gap-2 flex-1 min-h-0 h-full overflow-hidden">
-          {/* Column 1: Speedometer Gauge & Total Odometer (Col 4) */}
-          <div className="col-span-12 md:col-span-4 flex flex-col gap-2 h-full min-h-0 justify-between">
-            <div className="flex-1 min-h-0">
+        {/* Main Scrollable Dashboard Layout */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-4 p-2 sm:p-4">
+          
+          {/* Screen 1: Speedometer & Odometer (Takes full viewport height) */}
+          <div className="flex flex-col gap-3 min-h-[calc(100dvh-140px)] justify-center">
+            {/* Speedometer Gauge (Takes most of the space) */}
+            <div className="flex-1 min-h-[400px] flex flex-col">
               <SpeedCanvas
                 speed={speed}
                 textSource={gpsState.sourceText}
@@ -595,6 +603,7 @@ export default function App() {
                 onSimulatedSpeedChange={handleSimulatedSpeedChange}
                 speedLimit={speedLimit}
                 onSpeedLimitChange={setSpeedLimit}
+                soundEnabled={soundEnabled}
               />
             </div>
 
@@ -605,20 +614,10 @@ export default function App() {
                 onOdometerChange={handleOdometerChange}
               />
             </div>
-
-            {/* Mode Switcher Footer */}
-            <div className="bg-[#09090d] border border-[#1e1e28] p-2 rounded-2xl flex items-center justify-between gap-2 shrink-0">
-              <button
-                onClick={() => setMode('pending')}
-                className="flex-1 py-2 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl text-xs font-black uppercase tracking-wider flex justify-center items-center gap-1.5 transition-colors"
-              >
-                <Compass size={15} /> Modo: {mode === 'real' ? 'GPS Real' : mode === 'simulated' ? 'Simulação' : 'Selecionar'}
-              </button>
-            </div>
           </div>
 
-          {/* Column 2: Trip Computer & Speed Telemetry Stock Chart (Col 5) */}
-          <div ref={middleColRef} className="col-span-12 md:col-span-5 flex flex-col gap-2.5 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-y-auto custom-scrollbar">
+          {/* Screen 2: Trip Computer & Speed Telemetry Stock Chart */}
+          <div ref={middleColRef} className="flex flex-col gap-2.5 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl mt-4">
             {/* Trip Tabs Switcher */}
             <div className="flex bg-[#050508] border border-[#1e1e28] rounded-xl p-1 shrink-0">
               {(['a', 'b'] as TripKey[]).map((k) => (
@@ -642,53 +641,53 @@ export default function App() {
 
             {/* 4 Primary High-Visibility Trip Cards (Large Size) */}
             <div className="grid grid-cols-2 gap-2.5 shrink-0 items-stretch">
-              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
+              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wider text-[#c19a6b] mb-2 leading-tight">
                   DISTÂNCIA
                 </span>
-                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
+                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-white tracking-tight leading-none mb-1">
                   {(activeTrip.distance / 1000).toFixed(1)}
                 </div>
-                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">KM</span>
+                <span className="text-sm font-black text-zinc-400 uppercase">KM</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b]">
+              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <div className="flex flex-col items-center gap-1 mb-2">
+                  <span className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wider text-[#c19a6b] leading-tight">
                     TEMPO LÍQUIDO
                   </span>
                   {speed === 0 && activeTrip.active && !activeTrip.paused && (
-                    <span className="text-[9px] font-black text-amber-400 bg-amber-500/15 border border-amber-500/40 px-1.5 py-0.2 rounded-full animate-pulse">
+                    <span className="text-[10px] font-black text-amber-400 bg-amber-500/15 border border-amber-500/40 px-2 py-0.5 rounded-full animate-pulse">
                       PAUSADO
                     </span>
                   )}
                 </div>
-                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-none mb-1">
                   {formatTime(activeTrip.elapsedTime)}
                 </div>
-                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">
-                  HH:MM:SS ({speed > 0 ? 'EM MOVIMENTO' : 'PARADO'})
+                <span className="text-sm font-black text-zinc-400 uppercase text-center leading-tight">
+                  ({speed > 0 ? 'EM MOVIMENTO' : 'PARADO'})
                 </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
+              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wider text-[#c19a6b] mb-2 leading-tight">
                   CONSUMO MÉDIO
                 </span>
-                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
+                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-white tracking-tight leading-none mb-1">
                   {tripAvgCons}
                 </div>
-                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">KM / L</span>
+                <span className="text-sm font-black text-zinc-400 uppercase">KM / L</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
-                  VELOCIDADE MÉDIA
+              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wider text-[#c19a6b] mb-2 leading-tight">
+                  VELOCIDADE MÉD.
                 </span>
-                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
+                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-white tracking-tight leading-none mb-1">
                   {tripAvgSpeed}
                 </div>
-                <span className="text-xs font-black text-zinc-400 uppercase mt-1.5">KM / H</span>
+                <span className="text-sm font-black text-zinc-400 uppercase">KM / H</span>
               </div>
             </div>
 
@@ -730,12 +729,6 @@ export default function App() {
               <InstantConsumptionCanvas instantConsumption={instantConsumption} />
             </div>
 
-            {/* Scroll Indicator Badge */}
-            <div className="flex items-center justify-center gap-2 py-1.5 px-3 text-[10px] font-black uppercase text-[#c19a6b] bg-[#14141f] border border-[#2a2a3e] rounded-xl shrink-0 my-0.5">
-              <span>Deslize a coluna para ver Telemetria (B3)</span>
-              <ChevronDown size={14} className="animate-bounce text-[#c19a6b]" />
-            </div>
-
             {/* B3 Stock Market Style Speed Chart (Gráfico de Bolsa de Valores) */}
             <div className="shrink-0 pt-1">
               <SpeedStockChart
@@ -747,9 +740,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* Column 3: Renault Clio Fuel Gauge & Tank Info (Col 3) */}
+          {/* Screen 3: Renault Clio Fuel Gauge & Tank Info */}
           <div
-            className={`col-span-12 md:col-span-3 flex flex-col justify-between gap-2 h-full min-h-0 border rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-hidden transition-colors ${
+            className={`flex flex-col justify-between gap-2 bg-[#09090d] border rounded-2xl p-2.5 sm:p-3 shadow-xl mt-4 transition-colors ${
               isReserveFuel
                 ? 'bg-[#150a0a] border-red-500/60 shadow-red-950/40'
                 : 'bg-[#09090d] border-[#1e1e28]'
@@ -810,53 +803,62 @@ export default function App() {
             {/* Tank Metrics Grid */}
             <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 my-0">
               <div
-                className={`p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center border ${
+                className={`p-3 sm:p-4 rounded-xl text-center flex flex-col justify-center border ${
                   isReserveFuel
                     ? 'bg-red-950/30 border-red-500/50'
                     : 'bg-[#12121c] border-[#222232]'
                 }`}
               >
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
-                <div className={`text-xl sm:text-2xl font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
+                <span className="text-sm sm:text-base font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
+                <div className={`text-4xl sm:text-5xl font-black mt-1 mb-1 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
                   {currentLiters} L
                 </div>
-                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
+                <span className="text-xs text-zinc-400 font-bold leading-tight">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
               </div>
 
               <div
-                className={`p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center border ${
+                className={`p-3 sm:p-4 rounded-xl text-center flex flex-col justify-center border ${
                   isReserveFuel
                     ? 'bg-red-500/20 border-red-500 shadow-md animate-pulse'
                     : 'bg-[#12121c] border-[#222232]'
                 }`}
               >
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-red-400">RESERVA</span>
-                <div className="text-xl sm:text-2xl font-black text-red-400 mt-0.5">
-                  {isReserveFuel ? '⚠️ EM RESERVA' : `≤ ${reserveLiters} L`}
+                <span className="text-sm sm:text-base font-black uppercase tracking-wider text-red-400">RESERVA</span>
+                <div className="text-4xl sm:text-5xl font-black text-red-400 mt-1 mb-1 flex items-baseline justify-center gap-1">
+                  {isReserveFuel ? '⚠️ ' : '≤ '}
+                  {reserveLiters} <span className="text-2xl">L</span>
                 </div>
-                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">
+                <span className="text-xs text-zinc-400 font-bold leading-tight">
                   {isReserveFuel ? `${currentLiters}L ≤ ${reserveLiters}L` : `Limite ${reserveLiters} Litros`}
                 </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
-                <div className="text-xl sm:text-2xl font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
-                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">com {currentLiters} Litros</span>
+              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-4 rounded-xl text-center flex flex-col justify-center">
+                <span className="text-sm sm:text-base font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
+                <div className="text-4xl sm:text-5xl font-black text-[#c19a6b] mt-1 mb-1">{autonomy} KM</div>
+                <span className="text-xs text-zinc-400 font-bold leading-tight">com {currentLiters} Litros</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 sm:p-3 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
-                <div className="text-xl sm:text-2xl font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
-                <span className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
+              <div className="bg-[#12121c] border border-[#222232] p-3 sm:p-4 rounded-xl text-center flex flex-col justify-center">
+                <span className="text-sm sm:text-base font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
+                <div className="text-4xl sm:text-5xl font-black text-white mt-1 mb-1">{fullTankAutonomy} KM</div>
+                <span className="text-xs text-zinc-400 font-bold leading-tight">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Footer Bar for Hidden Controls */}
-        <footer className="flex flex-col sm:flex-row justify-between items-center px-3 py-2 bg-[#09090d] border border-[#1e1e28] rounded-2xl shadow-xl shrink-0 gap-2">
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <footer className="flex flex-col sm:flex-row justify-between items-center px-3 py-2 bg-[#09090d] border border-[#1e1e28] rounded-2xl shadow-xl shrink-0 gap-2 mt-auto">
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:gap-2 w-full sm:w-auto">
+            {/* Mode Switcher */}
+            <button
+              onClick={() => setMode('pending')}
+              className="p-1.5 sm:px-2.5 sm:py-1 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
+            >
+              <Compass size={14} /> <span className="hidden sm:inline">Modo:</span> {mode === 'real' ? 'GPS Real' : mode === 'simulated' ? 'Simulação' : 'Selecionar'}
+            </button>
+
             {/* GPS Status Indicator */}
             <div
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-black border uppercase tracking-wider ${
@@ -906,6 +908,40 @@ export default function App() {
             >
               <RefreshCw size={14} /> <span className="hidden lg:inline">Reset</span>
             </button>
+            {/* Sound Toggle */}
+            <button
+              onClick={() => setSoundEnabled((p) => !p)}
+              className={`p-1.5 sm:px-2.5 sm:py-1 border rounded-xl text-[10px] sm:text-xs font-extrabold flex items-center gap-1 transition-colors ${
+                soundEnabled
+                  ? 'bg-blue-500/15 border-blue-500/40 text-blue-400 hover:bg-blue-500/25'
+                  : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:bg-zinc-700'
+              }`}
+              title="Alternar Alerta Sonoro"
+            >
+              {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+              <span className="hidden lg:inline">Som</span>
+            </button>
+
+            {/* Speed Limit Adjust */}
+            <div className="flex items-center bg-[#14141e] border border-[#2a2a3a] rounded-xl overflow-hidden">
+              <button
+                onClick={() => setSpeedLimit((l) => Math.max(30, l - 10))}
+                className="p-1.5 hover:bg-[#1f1f2c] text-zinc-300 transition-colors"
+                title="Reduzir Limite"
+              >
+                <Minus size={14} />
+              </button>
+              <div className="px-2 text-[10px] sm:text-xs font-black text-white flex items-center gap-1">
+                <AlertTriangle size={12} className="text-red-400" /> {speedLimit}
+              </div>
+              <button
+                onClick={() => setSpeedLimit((l) => Math.min(150, l + 10))}
+                className="p-1.5 hover:bg-[#1f1f2c] text-zinc-300 transition-colors"
+                title="Aumentar Limite"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
           </div>
 
           {mode === 'simulated' && (
