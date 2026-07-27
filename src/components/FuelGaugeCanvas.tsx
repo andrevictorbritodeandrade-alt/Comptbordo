@@ -29,7 +29,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
 
     // Center of the arc dial gauge (Renault Clio style)
     const cx = width / 2;
-    const cy = 95;
+    const cy = 84;
     const radius = 56;
 
     // Angle range: 135 deg (Empty) to 45 deg (Full)
@@ -129,8 +129,8 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
         else if (i === 12) labelText = '3/4';
         else if (i === 16) labelText = '1/1';
 
-        ctx.fillStyle = i === 0 && isReserve ? '#ef4444' : '#d4d4d8';
-        ctx.font = '800 9px "Outfit", sans-serif';
+        ctx.fillStyle = i === 0 && isReserve ? '#ef4444' : '#ffffff';
+        ctx.font = '900 10.5px "Outfit", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(labelText, lx, ly);
@@ -140,7 +140,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     // 6. Fuel Pump Icon in the Center
     ctx.save();
     ctx.fillStyle = isReserve ? '#ef4444' : '#a1a1aa';
-    ctx.font = '14px sans-serif';
+    ctx.font = '15px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('⛽', cx, cy - 28);
@@ -181,17 +181,17 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
 
     // 8. Liters and Percentage Digital Display at bottom
     ctx.fillStyle = isReserve ? '#f87171' : '#ffffff';
-    ctx.font = '900 18px "Outfit", sans-serif';
+    ctx.font = '900 20px "Outfit", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(`${currentLiters} L`, cx, cy + 22);
+    ctx.fillText(`${currentLiters} L`, cx, cy + 20);
 
-    ctx.fillStyle = isReserve ? '#ef4444' : '#a1a1aa';
-    ctx.font = '800 10px "Outfit", sans-serif';
+    ctx.fillStyle = isReserve ? '#ef4444' : '#cbd5e1';
+    ctx.font = '800 11px "Outfit", sans-serif';
     if (isReserve) {
-      ctx.fillText(`⚠️ RESERVA (≤ ${resLiters.toFixed(1)} L)`, cx, cy + 45);
+      ctx.fillText(`⚠️ RESERVA (≤ ${resLiters.toFixed(1)} L)`, cx, cy + 44);
     } else {
-      ctx.fillText(`DE ${tankCapacity} L (${Math.round(fuelLevel)}%)`, cx, cy + 45);
+      ctx.fillText(`DE ${tankCapacity} L (${Math.round(fuelLevel)}%)`, cx, cy + 44);
     }
 
     ctx.restore();
@@ -199,7 +199,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center relative">
-      <canvas ref={canvasRef} width={220} height={175} className="block" />
+      <canvas ref={canvasRef} width={220} height={156} className="block" />
     </div>
   );
 };

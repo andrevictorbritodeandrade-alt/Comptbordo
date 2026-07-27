@@ -809,39 +809,39 @@ export default function App() {
             }`}
           >
             <div className="flex items-center justify-between pb-1 border-b border-[#1e1e28] shrink-0">
-              <span className="text-xs font-black uppercase tracking-wider text-[#c19a6b] flex items-center gap-1.5">
+              <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-wider text-[#c19a6b] flex items-center gap-1.5">
                 MARCADOR CLIO
                 {isReserveFuel && (
-                  <span className="bg-red-500/20 text-red-400 border border-red-500/60 px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider animate-pulse">
+                  <span className="bg-red-500/20 text-red-400 border border-red-500/60 px-1.5 py-0.2 rounded text-[10px] font-black uppercase tracking-wider animate-pulse">
                     ⚠️ RESERVA!
                   </span>
                 )}
               </span>
-              <span className="text-[10px] font-black text-zinc-400 uppercase">
+              <span className="text-xs sm:text-sm font-black text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md uppercase">
                 {carConfig.currentFuel === 'gasoline' ? 'GASOLINA' : 'ETANOL'}
               </span>
             </div>
 
             {/* Refuel & Photo Scan Action Buttons */}
-            <div className="grid grid-cols-2 gap-1.5 shrink-0">
+            <div className="grid grid-cols-2 gap-2 shrink-0">
               <button
                 onClick={() => setShowQuickRefuelModal(true)}
-                className="py-1.5 px-2 bg-[#1b1b2a] hover:bg-[#25253b] text-amber-400 border border-amber-500/40 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
+                className="py-2 px-2.5 bg-[#1b1b2a] hover:bg-[#25253b] text-amber-400 border border-amber-500/40 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
               >
-                <Fuel size={14} className="text-amber-400" /> Abastecer
+                <Fuel size={16} className="text-amber-400" /> Abastecer
               </button>
               <button
                 onClick={() => setShowPhotoScanner(true)}
-                className="py-1.5 px-2 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
+                className="py-2 px-2.5 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
               >
-                <Sparkles size={14} className="text-[#c19a6b]" /> Escanear
+                <Sparkles size={16} className="text-[#c19a6b]" /> Escanear
               </button>
             </div>
 
-            {/* Dial Canvas */}
-            <div className="flex justify-center items-center relative shrink-0 my-0.5">
+            {/* Dial Canvas (Visor Comprimido e Elevado) */}
+            <div className="flex justify-center items-center relative shrink-0 my-0">
               <div
-                className={`border rounded-2xl p-1.5 relative flex justify-center shadow-inner ${
+                className={`border rounded-2xl p-0.5 relative flex justify-center shadow-inner ${
                   isReserveFuel
                     ? 'bg-[#1e0a0a] border-red-500/50'
                     : 'bg-[#12121c] border-[#222232]'
@@ -861,47 +861,47 @@ export default function App() {
             </div>
 
             {/* Tank Metrics Grid */}
-            <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 my-0.5">
+            <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 my-0">
               <div
-                className={`p-2 rounded-xl text-center flex flex-col justify-center border ${
+                className={`p-2.5 sm:p-3 rounded-xl text-center flex flex-col justify-center border ${
                   isReserveFuel
                     ? 'bg-red-950/30 border-red-500/50'
                     : 'bg-[#12121c] border-[#222232]'
                 }`}
               >
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
-                <div className={`text-lg sm:text-xl font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
+                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
+                <div className={`text-2xl sm:text-3xl md:text-4xl font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
                   {currentLiters} L
                 </div>
-                <span className="text-[9px] text-zinc-400 font-bold">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
+                <span className="text-xs text-zinc-300 font-extrabold mt-0.5">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
               </div>
 
               <div
-                className={`p-2 rounded-xl text-center flex flex-col justify-center border ${
+                className={`p-2.5 sm:p-3 rounded-xl text-center flex flex-col justify-center border ${
                   isReserveFuel
                     ? 'bg-red-500/20 border-red-500 shadow-md animate-pulse'
                     : 'bg-[#12121c] border-[#222232]'
                 }`}
               >
-                <span className="text-[10px] font-black uppercase tracking-wider text-red-400">RESERVA</span>
-                <div className="text-lg sm:text-xl font-black text-red-400 mt-0.5">
-                  {isReserveFuel ? '⚠️ EM RESERVA' : `≤ ${reserveLiters} L`}
+                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-red-400">RESERVA</span>
+                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-red-400 mt-0.5">
+                  {isReserveFuel ? '⚠️ RESERVA' : `≤ ${reserveLiters} L`}
                 </div>
-                <span className="text-[9px] text-zinc-400 font-bold">
+                <span className="text-xs text-zinc-300 font-extrabold mt-0.5">
                   {isReserveFuel ? `${currentLiters}L ≤ ${reserveLiters}L` : `Limite ${reserveLiters} Litros`}
                 </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
-                <div className="text-xl sm:text-2xl font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
-                <span className="text-[9px] text-zinc-400 font-bold">com {currentLiters} Litros</span>
+              <div className="bg-[#12121c] border border-[#222232] p-2.5 sm:p-3 rounded-xl text-center flex flex-col justify-center">
+                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
+                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
+                <span className="text-xs text-zinc-300 font-extrabold mt-0.5">com {currentLiters} Litros</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-300">TANQUE CHEIO</span>
-                <div className="text-xl sm:text-2xl font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
-                <span className="text-[9px] text-zinc-400 font-bold">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
+              <div className="bg-[#12121c] border border-[#222232] p-2.5 sm:p-3 rounded-xl text-center flex flex-col justify-center">
+                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
+                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
+                <span className="text-xs text-zinc-300 font-extrabold mt-0.5">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
               </div>
             </div>
           </div>
