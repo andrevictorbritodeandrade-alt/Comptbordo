@@ -26,9 +26,13 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     const width = canvas.width;
     const height = canvas.height;
     ctx.clearRect(0, 0, width, height);
+    
+    ctx.save();
+    // Scale drawing to match new higher resolution canvas (assuming original was 200x200)
+    ctx.scale(width / 200, height / 200);
 
     // Center of the arc dial gauge (Renault Clio style)
-    const cx = width / 2; // 100 for 200 width
+    const cx = 100; // 100 for 200 width
     const cy = 78;
     const radius = 52;
 
@@ -146,6 +150,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     ctx.fillText('⛽', cx, cy - 25);
     ctx.restore();
 
+
     // 7. Needle Indicator
     ctx.save();
     ctx.shadowColor = isReserve ? '#ef4444' : '#f97316';
@@ -179,6 +184,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
 
     ctx.restore();
 
+
     // 8. Liters and Percentage Digital Display at bottom
     ctx.textBaseline = 'top';
     ctx.textAlign = 'center';
@@ -201,11 +207,13 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     }
 
     ctx.restore();
+
+    ctx.restore(); // scale context
   }, [fuelLevel, tankCapacity, resLiters, currentLitersVal, isReserve]);
 
   return (
-    <div className="flex flex-col items-center justify-center relative">
-      <canvas ref={canvasRef} width={200} height={200} className="block" />
+    <div className="flex flex-col items-center justify-center relative w-full h-full">
+      <canvas ref={canvasRef} width={240} height={240} className="w-full h-full object-contain block" />
     </div>
   );
 };
