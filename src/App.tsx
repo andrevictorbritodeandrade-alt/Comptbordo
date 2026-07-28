@@ -96,7 +96,6 @@ export default function App() {
     return 'pending';
   });
   const [speedLimit, setSpeedLimit] = useState<number>(80);
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showPhotoScanner, setShowPhotoScanner] = useState<boolean>(false);
   const [showQuickRefuelModal, setShowQuickRefuelModal] = useState<boolean>(false);
@@ -603,13 +602,13 @@ export default function App() {
           </div>
         </header>
 
-        {/* Main Scrollable Dashboard Layout */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-4 p-2 sm:p-4 pb-32">
+        {/* Dashboard Grid - Fitted 100% vertically, No Scrolling */}
+        <div className="grid grid-cols-12 gap-2 flex-1 min-h-0 h-full overflow-hidden">
           
-          {/* Screen 1: Speedometer Gauge & Total Odometer */}
-          <div className="flex flex-col gap-3 min-h-[calc(100dvh-180px)] justify-center shrink-0">
+          {/* Column 1: Speedometer Gauge & Total Odometer (Col 4) */}
+          <div className="col-span-12 md:col-span-4 flex flex-col gap-2 h-full min-h-0 justify-between">
             {/* Speedometer Gauge */}
-            <div className="flex-1 min-h-[400px] flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               <SpeedCanvas
                 speed={speed}
                 textSource={gpsState.sourceText}
@@ -618,12 +617,12 @@ export default function App() {
                 onSimulatedSpeedChange={handleSimulatedSpeedChange}
                 speedLimit={speedLimit}
                 onSpeedLimitChange={setSpeedLimit}
-                soundEnabled={soundEnabled}
+                
               />
             </div>
 
             {/* Renault Clio Digital Odometer */}
-            <div className="shrink-0 mb-4">
+            <div className="shrink-0">
               <OdometerDisplay
                 totalKm={carConfig.totalOdometerKm ?? 149251}
                 onOdometerChange={handleOdometerChange}
@@ -631,8 +630,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Screen 2: Trip Computer & Speed Telemetry Stock Chart */}
-          <div className="flex flex-col gap-2.5 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-4 shadow-xl shrink-0">
+          {/* Column 2: Trip Computer & Speed Telemetry Stock Chart (Col 5) */}
+          <div ref={middleColRef} className="col-span-12 md:col-span-5 flex flex-col gap-2.5 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-y-auto custom-scrollbar overscroll-contain pb-6 sm:pb-4 relative">
             {/* Trip Tabs Switcher */}
             <div className="flex bg-[#050508] border border-[#1e1e28] rounded-xl p-1 shrink-0">
               {(['a', 'b'] as TripKey[]).map((k) => (
@@ -656,17 +655,17 @@ export default function App() {
 
             {/* 4 Primary High-Visibility Trip Cards */}
             <div className="grid grid-cols-2 gap-2.5 shrink-0 items-stretch">
-              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
                 <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
                   DISTÂNCIA
                 </span>
-                <div className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-none">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
                   {(activeTrip.distance / 1000).toFixed(1)}
                 </div>
                 <span className="text-sm font-black text-zinc-400 uppercase mt-2">KM</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b]">
                     TEMPO LÍQUIDO
@@ -685,21 +684,21 @@ export default function App() {
                 </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
                 <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
                   CONSUMO MÉDIO
                 </span>
-                <div className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-none">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
                   {tripAvgCons}
                 </div>
                 <span className="text-sm font-black text-zinc-400 uppercase mt-2">KM / L</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-4 sm:p-6 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
+              <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
                 <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] mb-1.5">
                   VELOCIDADE MÉDIA
                 </span>
-                <div className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-none">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-none">
                   {tripAvgSpeed}
                 </div>
                 <span className="text-sm font-black text-zinc-400 uppercase mt-2">KM / H</span>
@@ -755,15 +754,15 @@ export default function App() {
             </div>
           </div>
 
-          {/* Screen 3: Renault Clio Fuel Gauge & Tank Info */}
+          {/* Column 3: Renault Clio Fuel Gauge & Tank Info (Col 3) */}
           <div
-            className={`flex flex-col gap-3 border rounded-2xl p-3 sm:p-5 shadow-xl transition-colors shrink-0 ${
+            className={`col-span-12 md:col-span-3 flex flex-col justify-between gap-2 h-full min-h-0 border rounded-2xl p-2.5 sm:p-3 shadow-xl overflow-hidden transition-colors ${
               isReserveFuel
                 ? 'bg-[#150a0a] border-red-500/60 shadow-red-950/40'
                 : 'bg-[#09090d] border-[#1e1e28]'
             }`}
           >
-            <div className="flex items-center justify-between pb-2 border-b border-[#1e1e28] shrink-0">
+            <div className="flex items-center justify-between pb-1 border-b border-[#1e1e28] shrink-0">
               <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-[#c19a6b] flex items-center gap-2">
                 MARCADOR CLIO
                 {isReserveFuel && (
@@ -778,25 +777,25 @@ export default function App() {
             </div>
 
             {/* Refuel & Photo Scan Action Buttons */}
-            <div className="grid grid-cols-2 gap-3 shrink-0">
+            <div className="grid grid-cols-2 gap-2 shrink-0">
               <button
                 onClick={() => setShowQuickRefuelModal(true)}
-                className="py-3 px-3 bg-[#1b1b2a] hover:bg-[#25253b] text-amber-400 border border-amber-500/40 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
+                className="py-2 px-2.5 bg-[#1b1b2a] hover:bg-[#25253b] text-amber-400 border border-amber-500/40 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
               >
-                <Fuel size={18} className="text-amber-400" /> Abastecer
+                <Fuel size={16} className="text-amber-400" /> Abastecer
               </button>
               <button
                 onClick={() => setShowPhotoScanner(true)}
-                className="py-3 px-3 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
+                className="py-2 px-2.5 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
               >
-                <Sparkles size={18} className="text-[#c19a6b]" /> Escanear
+                <Sparkles size={16} className="text-[#c19a6b]" /> Escanear
               </button>
             </div>
 
-            {/* Dial Canvas */}
-            <div className="flex justify-center items-center relative shrink-0 py-2">
+            {/* Dial Canvas (Visor Comprimido e Elevado) */}
+            <div className="flex justify-center items-center relative shrink-0 my-0">
               <div
-                className={`border rounded-2xl p-1 relative flex justify-center shadow-inner ${
+                className={`border rounded-2xl p-0.5 relative flex justify-center shadow-inner ${
                   isReserveFuel
                     ? 'bg-[#1e0a0a] border-red-500/50'
                     : 'bg-[#12121c] border-[#222232]'
@@ -808,7 +807,7 @@ export default function App() {
                   reserveLiters={reserveLitersNum}
                 />
                 {isReserveFuel && (
-                  <div className="absolute top-3 right-3 bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-black text-sm border-2 border-white animate-bounce shadow-md">
+                  <div className="absolute top-2 right-2 bg-red-600 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-xs border-2 border-white animate-bounce shadow-md">
                     R
                   </div>
                 )}
@@ -921,19 +920,6 @@ export default function App() {
               title="Resetar Trips / Reabastecer"
             >
               <RefreshCw size={14} /> <span className="hidden lg:inline">Reset</span>
-            </button>
-            {/* Sound Toggle */}
-            <button
-              onClick={() => setSoundEnabled((p) => !p)}
-              className={`p-1.5 sm:px-2.5 sm:py-1 border rounded-xl text-[10px] sm:text-xs font-extrabold flex items-center gap-1 transition-colors ${
-                soundEnabled
-                  ? 'bg-blue-500/15 border-blue-500/40 text-blue-400 hover:bg-blue-500/25'
-                  : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:bg-zinc-700'
-              }`}
-              title="Alternar Alerta Sonoro"
-            >
-              {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
-              <span className="hidden lg:inline">Som</span>
             </button>
 
             {/* Speed Limit Adjust */}

@@ -1,5 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Volume2, VolumeX, Plus, Minus, AlertTriangle, ShieldAlert } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface SpeedCanvasProps {
   speed: number;
@@ -9,7 +8,6 @@ interface SpeedCanvasProps {
   onSimulatedSpeedChange?: (speed: number) => void;
   speedLimit?: number;
   onSpeedLimitChange?: (limit: number) => void;
-  soundEnabled?: boolean;
 }
 
 export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
@@ -20,7 +18,6 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
   onSimulatedSpeedChange,
   speedLimit: externalSpeedLimit,
   onSpeedLimitChange,
-  soundEnabled = true,
 }) => {
   const [speedLimit, setSpeedLimit] = useState<number>(externalSpeedLimit ?? 80);
 
@@ -29,7 +26,7 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
     if (externalSpeedLimit !== undefined && externalSpeedLimit !== speedLimit) {
       setSpeedLimit(externalSpeedLimit);
     }
-  }, [externalSpeedLimit]);
+  }, [externalSpeedLimit, speedLimit]);
 
   const updateSpeedLimit = (newLimit: number) => {
     const clamped = Math.min(150, Math.max(30, newLimit));
@@ -41,143 +38,19 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rotationRef = useRef<number>(0);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const engineOscRef = useRef<OscillatorNode | null>(null);
-  const engineGainRef = useRef<GainNode | null>(null);
 
   // Estimate RPM for Renault Clio 1.0 16V in 5th gear (65 km/h = 2500 RPM)
   const estimatedRpm = speed > 0 ? Math.min(6500, Math.max(850, Math.round((speed / 65) * 2500))) : 0;
-
-  // Engine Sound Effect
-  useEffect(() => {
-    if (!soundEnabled) {
-      if (engineOscRef.current) {
-        engineOscRef.current.stop();
-        engineOscRef.current.disconnect();
-        engineOscRef.current = null;
-      }
-      if (engineGainRef.current) {
-        engineGainRef.current.disconnect();
-        engineGainRef.current = null;
-      }
-      return;
-    }
-
-    try {
-      if (!audioCtxRef.current) {
-        const AudioCtx =
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        audioCtxRef.current = new AudioCtx();
-      }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
-      if (!engineOscRef.current) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'triangle'; // Smoother than sawtooth
-
-        // Low pass filter to muffle the sound and make it more like a real engine hum
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 180;
-
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start();
-        engineOscRef.current = osc;
-        engineGainRef.current = gain;
-      }
-    } catch (e) {
-      console.warn('Erro na síntese de áudio do motor:', e);
-    }
-  }, [soundEnabled]);
-
-  // Update engine pitch/volume based on speed
-  useEffect(() => {
-    if (engineOscRef.current && engineGainRef.current && audioCtxRef.current && soundEnabled) {
-      const ctx = audioCtxRef.current;
-      // Idle freq ~ 45Hz. Increases slightly with speed.
-      const baseFreq = 45;
-      const targetFreq = baseFreq + (speed * 0.8);
-      
-      // Volume lower at idle, increases with speed
-      const targetVol = speed === 0 ? 0.1 : Math.min(0.25, 0.1 + (speed * 0.0015));
-
-      engineOscRef.current.frequency.setTargetAtTime(targetFreq, ctx.currentTime, 0.1);
-      engineGainRef.current.gain.setTargetAtTime(targetVol, ctx.currentTime, 0.1);
-    }
-  }, [speed, soundEnabled]);
 
   // Determine speed state
   const isEco = speed >= 40 && speed <= (speedLimit - 2);
   const isOverLimit = speed > speedLimit;
 
-  // Web Audio warning beep function
-  const playWarningBeep = useCallback(() => {
-    if (!soundEnabled) return;
-    try {
-      if (!audioCtxRef.current) {
-        const AudioCtx =
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        audioCtxRef.current = new AudioCtx();
-      }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
-      const now = ctx.currentTime;
-
-      // Tone 1: Alert Beep (880 Hz - High pitch alert)
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'sawtooth';
-      osc1.frequency.setValueAtTime(880, now);
-      gain1.gain.setValueAtTime(0.18, now);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(now);
-      osc1.stop(now + 0.15);
-
-      // Tone 2: Alert Siren Pulse (1046.5 Hz - High C)
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'sawtooth';
-      osc2.frequency.setValueAtTime(1046.5, now + 0.16);
-      gain2.gain.setValueAtTime(0.22, now + 0.16);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-      osc2.start(now + 0.16);
-      osc2.stop(now + 0.35);
-    } catch (e) {
-      console.warn('Erro na síntese de áudio do alerta de velocidade:', e);
-    }
-  }, [soundEnabled]);
-
-  // Trigger sound alarm when over limit
-  useEffect(() => {
-    if (isOverLimit && soundEnabled) {
-      playWarningBeep();
-      const interval = setInterval(() => {
-        playWarningBeep();
-      }, 1100);
-      return () => clearInterval(interval);
-    }
-  }, [isOverLimit, soundEnabled, playWarningBeep]);
-
   // Render speedometer canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -229,6 +102,7 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
       const maxSpeed = 160;
       const limitRatio = Math.min(1, Math.max(0, speedLimit / maxSpeed));
       const limitAngle = Math.PI * 0.75 + limitRatio * (Math.PI * 1.5);
+      
       const innerX = centerX + Math.cos(limitAngle) * 70;
       const innerY = centerY + Math.sin(limitAngle) * 70;
       const outerX = centerX + Math.cos(limitAngle) * 90;
@@ -252,7 +126,7 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
       // Dynamic Speed Arc
       const speedRatio = Math.min(1, Math.max(0, speed / maxSpeed));
       const endAngle = Math.PI * 0.75 + speedRatio * (Math.PI * 1.5);
-
+      
       ctx.strokeStyle = speedColor;
       ctx.shadowColor = speedColor;
       ctx.shadowBlur = isOverLimit ? 20 : isEco ? 14 : 8;
@@ -269,7 +143,7 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(Math.round(speed).toString(), centerX, centerY - 10);
-
+      
       // Speed Unit
       ctx.fillStyle = speedColor;
       ctx.font = '800 13px "Outfit", sans-serif';
@@ -285,7 +159,6 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
         ctx.font = '700 10px "Outfit", sans-serif';
         ctx.fillText('0 RPM (PARADO)', centerX, centerY + 50);
       }
-
       ctx.restore();
 
       animationFrameId = window.requestAnimationFrame(render);
@@ -310,5 +183,3 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
     </div>
   );
 };
-
-
