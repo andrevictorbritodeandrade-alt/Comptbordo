@@ -27,7 +27,6 @@ import { FuelGaugeCanvas } from './components/FuelGaugeCanvas';
 import { InstantConsumptionCanvas } from './components/InstantConsumptionCanvas';
 import { SpeedStockChart } from './components/SpeedStockChart';
 import { OdometerDisplay } from './components/OdometerDisplay';
-import { SettingsModal } from './components/SettingsModal';
 import { FuelPhotoScannerModal } from './components/FuelPhotoScannerModal';
 import { QuickRefuelModal } from './components/QuickRefuelModal';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
@@ -96,7 +95,6 @@ export default function App() {
     return 'pending';
   });
   const [speedLimit, setSpeedLimit] = useState<number>(80);
-  const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showPhotoScanner, setShowPhotoScanner] = useState<boolean>(false);
   const [showQuickRefuelModal, setShowQuickRefuelModal] = useState<boolean>(false);
   const [gpsDenied, setGpsDenied] = useState<boolean>(false);
@@ -585,6 +583,71 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* GPS Status Indicator */}
+            <div
+              className={`flex items-center justify-center p-1.5 rounded-xl border ${
+                gpsState.active
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                  : 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+              }`}
+              title={gpsState.statusText}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  gpsState.active ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                }`}
+              />
+            </div>
+
+            {/* Mode Switcher */}
+            <button
+              onClick={() => setMode('pending')}
+              className="p-1.5 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl transition-colors"
+              title={mode === 'real' ? 'GPS Real' : mode === 'simulated' ? 'Simulação' : 'Selecionar Modo'}
+            >
+              <Compass size={14} />
+            </button>
+            
+            {/* Quick AI Photo */}
+            <button
+              onClick={() => setShowPhotoScanner(true)}
+              className="p-1.5 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#c19a6b]/40 text-[#c19a6b] rounded-xl transition-colors shadow-md"
+              title="Escanear foto do tanque com IA"
+            >
+              <Sparkles size={14} />
+            </button>
+
+            {/* Reset */}
+            <button
+              onClick={() => {
+                if (confirm('Deseja resetar as Trips e reabastecer o tanque para 100%?')) {
+                  setTrips({
+                    a: { active: false, paused: false, distance: 0, elapsedTime: 0, totalFuelConsumed: 0, speedSamples: [] },
+                    b: { active: false, paused: false, distance: 0, elapsedTime: 0, totalFuelConsumed: 0, speedSamples: [] },
+                  });
+                  setCarConfig((prev) => ({ ...prev, fuelLevel: 100 }));
+                }
+              }}
+              className="p-1.5 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl transition-colors"
+              title="Resetar Trips / Reabastecer"
+            >
+              <RefreshCw size={14} />
+            </button>
+
+            {mode === 'simulated' && (
+              <div className="flex items-center gap-2 w-24">
+                <input
+                  type="range"
+                  min="0"
+                  max="150"
+                  value={simulatedSpeed}
+                  onChange={(e) => handleSimulatedSpeedChange(Number(e.target.value))}
+                  className="w-full cursor-pointer accent-[#c19a6b]"
+                  title={`Simulador: ${Math.round(simulatedSpeed)} km/h`}
+                />
+              </div>
+            )}
+
             {/* HUD / Fullscreen toggle */}
             <button
               onClick={() => {
@@ -861,116 +924,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Footer Bar for Hidden Controls */}
-        <footer className="flex flex-col sm:flex-row justify-between items-center px-3 py-2 bg-[#09090d] border border-[#1e1e28] rounded-2xl shadow-xl shrink-0 gap-2 mt-auto">
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:gap-2 w-full sm:w-auto">
-            {/* Mode Switcher */}
-            <button
-              onClick={() => setMode('pending')}
-              className="p-1.5 sm:px-2.5 sm:py-1 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
-            >
-              <Compass size={14} /> <span className="hidden sm:inline">Modo:</span> {mode === 'real' ? 'GPS Real' : mode === 'simulated' ? 'Simulação' : 'Selecionar'}
-            </button>
-
-            {/* GPS Status Indicator */}
-            <div
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-black border uppercase tracking-wider ${
-                gpsState.active
-                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                  : 'bg-amber-500/15 border-amber-500/40 text-amber-400'
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  gpsState.active ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                }`}
-              />
-              {gpsState.statusText}
-            </div>
-
-            {/* Quick AI Photo */}
-            <button
-              onClick={() => setShowPhotoScanner(true)}
-              className="flex items-center gap-1 bg-[#c19a6b] hover:bg-[#a88255] text-black border border-[#c19a6b] px-2.5 py-1 text-[10px] sm:text-xs font-black rounded-xl uppercase tracking-wider transition-all active:scale-95 shadow-md"
-              title="Escanear foto do tanque com IA"
-            >
-              <Sparkles size={14} /> <span className="hidden sm:inline">IA Foto</span>
-            </button>
-
-            {/* Settings */}
-            <button
-              onClick={() => setShowSettings(true)}
-              className="p-1.5 sm:px-2.5 sm:py-1 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl text-[10px] sm:text-xs font-extrabold flex items-center gap-1 transition-colors"
-            >
-              <Settings size={14} /> <span className="hidden md:inline">Ajustes</span>
-            </button>
-
-            {/* Reset */}
-            <button
-              onClick={() => {
-                if (confirm('Deseja resetar as Trips e reabastecer o tanque para 100%?')) {
-                  setTrips({
-                    a: { active: false, paused: false, distance: 0, elapsedTime: 0, totalFuelConsumed: 0, speedSamples: [] },
-                    b: { active: false, paused: false, distance: 0, elapsedTime: 0, totalFuelConsumed: 0, speedSamples: [] },
-                  });
-                  setCarConfig((prev) => ({ ...prev, fuelLevel: 100 }));
-                }
-              }}
-              className="p-1.5 sm:px-2.5 sm:py-1 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl text-[10px] sm:text-xs font-extrabold flex items-center gap-1 transition-colors"
-              title="Resetar Trips / Reabastecer"
-            >
-              <RefreshCw size={14} /> <span className="hidden lg:inline">Reset</span>
-            </button>
-
-            {/* Speed Limit Adjust */}
-            <div className="flex items-center bg-[#14141e] border border-[#2a2a3a] rounded-xl overflow-hidden">
-              <button
-                onClick={() => setSpeedLimit((l) => Math.max(30, l - 10))}
-                className="p-1.5 hover:bg-[#1f1f2c] text-zinc-300 transition-colors"
-                title="Reduzir Limite"
-              >
-                <Minus size={14} />
-              </button>
-              <div className="px-2 text-[10px] sm:text-xs font-black text-white flex items-center gap-1">
-                <AlertTriangle size={12} className="text-red-400" /> {speedLimit}
-              </div>
-              <button
-                onClick={() => setSpeedLimit((l) => Math.min(150, l + 10))}
-                className="p-1.5 hover:bg-[#1f1f2c] text-zinc-300 transition-colors"
-                title="Aumentar Limite"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-          </div>
-
-          {mode === 'simulated' && (
-            <div className="flex-1 w-full max-w-sm flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold whitespace-nowrap">
-                Simulador: <strong className="text-[#c19a6b]">{Math.round(simulatedSpeed)} km/h</strong>
-              </span>
-              <input
-                type="range"
-                min="0"
-                max="150"
-                value={simulatedSpeed}
-                onChange={(e) => handleSimulatedSpeedChange(Number(e.target.value))}
-                className="w-full cursor-pointer accent-[#c19a6b]"
-              />
-            </div>
-          )}
-        </footer>
       </div>
-
-      {/* Settings Modal */}
-      {showSettings && (
-        <SettingsModal
-          carConfig={carConfig}
-          setCarConfig={setCarConfig}
-          onClose={() => setShowSettings(false)}
-          onOpenPhotoScanner={() => setShowPhotoScanner(true)}
-        />
-      )}
 
       {/* Fuel Photo Scanner Modal (Gemini AI Vision) */}
       <FuelPhotoScannerModal
