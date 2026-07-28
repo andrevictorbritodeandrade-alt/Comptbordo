@@ -1,11 +1,19 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { TrendingUp, TrendingDown, Activity, BarChart2, LineChart, ShieldAlert } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, BarChart2, LineChart, ShieldAlert, Clock, AlertTriangle, ArrowDown } from 'lucide-react';
 
 interface SpeedStockChartProps {
   speedSamples: number[];
   currentSpeed: number;
   avgSpeed: number;
   speedLimit?: number;
+}
+
+interface SpeedEvent {
+  id: string;
+  timestamp: Date;
+  type: 'limit' | 'low' | 'summary';
+  message: string;
+  speedInfo: string;
 }
 
 export const SpeedStockChart: React.FC<SpeedStockChartProps> = ({
@@ -19,6 +27,13 @@ export const SpeedStockChart: React.FC<SpeedStockChartProps> = ({
 
   // Maintain a live sliding buffer of up to 60 samples if trip samples are few
   const [liveHistory, setLiveHistory] = useState<number[]>([]);
+  
+  // Event tracking
+  const [events, setEvents] = useState<SpeedEvent[]>([]);
+  const summaryStartTimeRef = useRef<number>(Date.now());
+  const summaryDataRef = useRef<{ min: number; max: number; sum: number; count: number }>({ min: 999, max: 0, sum: 0, count: 0 });
+  const isOverLimitRef = useRef<boolean>(false);
+  const isLowSpeedRef = useRef<boolean>(false);
 
   useEffect(() => {
     setLiveHistory((prev) => {
@@ -26,7 +41,67 @@ export const SpeedStockChart: React.FC<SpeedStockChartProps> = ({
       if (updated.length > 60) updated.shift();
       return updated;
     });
-  }, [currentSpeed]);
+
+    // Event Logging Logic
+    const now = Date.now();
+    const s = summaryDataRef.current;
+    
+    // Update summary data (ignore 0 if you want, but for avg it's fine)
+    s.min = Math.min(s.min, currentSpeed);
+    s.max = Math.max(s.max, currentSpeed);
+    s.sum += currentSpeed;
+    s.count += 1;
+
+    // 15 min interval check (900000 ms)
+    // For testing purposes, if you want it faster, you'd change this, but the user asked for 15 min.
+    if (now - summaryStartTimeRef.current >= 900000) {
+      const avg = s.count > 0 ? Math.round(s.sum / s.count) : 0;
+      const minVal = s.min === 999 ? 0 : Math.round(s.min);
+      const newEvent: SpeedEvent = {
+        id: Math.random().toString(),
+        timestamp: new Date(),
+        type: 'summary',
+        message: 'Resumo 15 min',
+        speedInfo: `MÁX ${Math.round(s.max)} | MÍN ${minVal} | MÉD ${avg}`,
+      };
+      setEvents((prev) => [newEvent, ...prev].slice(0, 30));
+      
+      // Reset
+      summaryStartTimeRef.current = now;
+      summaryDataRef.current = { min: 999, max: 0, sum: 0, count: 0 };
+    }
+
+    // Over limit trigger
+    if (currentSpeed > speedLimit && !isOverLimitRef.current) {
+      isOverLimitRef.current = true;
+      const newEvent: SpeedEvent = {
+        id: Math.random().toString(),
+        timestamp: new Date(),
+        type: 'limit',
+        message: 'Limite Excedido',
+        speedInfo: `${Math.round(currentSpeed)} km/h`,
+      };
+      setEvents((prev) => [newEvent, ...prev].slice(0, 30));
+    } else if (currentSpeed <= speedLimit - 5) {
+      isOverLimitRef.current = false; // reset with hysteresis
+    }
+
+    // Low speed trigger (< 20 km/h), avoid spamming when stopped by only triggering once when dropping below 20
+    if (currentSpeed > 0 && currentSpeed <= 20 && !isLowSpeedRef.current) {
+      isLowSpeedRef.current = true;
+      const newEvent: SpeedEvent = {
+        id: Math.random().toString(),
+        timestamp: new Date(),
+        type: 'low',
+        message: 'Velocidade Baixa',
+        speedInfo: `${Math.round(currentSpeed)} km/h`,
+      };
+      setEvents((prev) => [newEvent, ...prev].slice(0, 30));
+    } else if (currentSpeed >= 25) {
+      isLowSpeedRef.current = false; // reset when speed picks up
+    }
+
+  }, [currentSpeed, speedLimit]);
 
   // Combined dataset for analysis (prefer trip samples if available, fallback to live sliding history)
   const activeSamples = useMemo(() => {
@@ -278,6 +353,14 @@ export const SpeedStockChart: React.FC<SpeedStockChartProps> = ({
     }
   }, [activeSamples, candles, currentSpeed, speedLimit, metrics, chartType]);
 
+  const getEventIcon = (type: SpeedEvent['type']) => {
+    switch (type) {
+      case 'limit': return <AlertTriangle size={14} className="text-red-400" />;
+      case 'low': return <ArrowDown size={14} className="text-sky-400" />;
+      case 'summary': return <Clock size={14} className="text-amber-400" />;
+    }
+  };
+
   return (
     <div className="bg-[#0b0b12] border border-[#1e1e2d] rounded-2xl p-3 sm:p-4 text-white shadow-xl flex flex-col justify-between gap-2.5">
       {/* Header Bar */}
@@ -294,7 +377,7 @@ export const SpeedStockChart: React.FC<SpeedStockChartProps> = ({
               </span>
             </div>
             <p className="text-[10px] text-zinc-400 font-medium">
-              Histórico de Velocidade & Curva de Desempenho
+              Histórico & Ocorrências (A cada 15 min / Limites)
             </p>
           </div>
         </div>
@@ -379,14 +462,54 @@ export const SpeedStockChart: React.FC<SpeedStockChartProps> = ({
         />
       </div>
 
-      {/* Footer Info */}
-      <div className="flex justify-between items-center text-[10px] text-zinc-400 px-1 font-semibold">
-        <span className="flex items-center gap-1">
-          <ShieldAlert size={11} className="text-red-400" /> Limite de Alerta: {speedLimit} KM/H
-        </span>
-        <span className="font-mono text-zinc-300">
-          Abertura: {metrics.open} km/h | Atual: {metrics.close} km/h
-        </span>
+      {/* Footer Info & Events Table */}
+      <div className="flex flex-col gap-2 mt-1">
+        <div className="flex justify-between items-center text-[10px] text-zinc-400 px-1 font-semibold">
+          <span className="flex items-center gap-1">
+            <ShieldAlert size={11} className="text-red-400" /> Limite de Alerta: {speedLimit} KM/H
+          </span>
+          <span className="font-mono text-zinc-300">
+            Abertura: {metrics.open} km/h | Atual: {metrics.close} km/h
+          </span>
+        </div>
+        
+        {/* Events Table Container */}
+        <div className="bg-[#12121e] border border-[#1f1f30] rounded-xl overflow-hidden flex flex-col max-h-[140px]">
+          <div className="bg-[#1a1a28] px-3 py-1.5 text-[10px] font-black uppercase text-zinc-300 border-b border-[#2a2a3e] flex items-center justify-between">
+            <span>Tabela de Ocorrências</span>
+            <span className="text-zinc-500">{events.length > 0 ? `${events.length} Registros` : 'Aguardando...'}</span>
+          </div>
+          <div className="overflow-y-auto custom-scrollbar p-1">
+            {events.length === 0 ? (
+              <div className="text-center text-zinc-500 text-xs py-4 font-medium italic">
+                Nenhuma ocorrência registrada nesta viagem.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {events.map(ev => (
+                  <div key={ev.id} className="flex items-center gap-2 p-2 bg-[#0b0b12] border border-[#1e1e2d] rounded-lg">
+                    <div className="shrink-0 w-10 text-[9px] font-mono text-zinc-500 font-bold">
+                      {ev.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </div>
+                    <div className="shrink-0 p-1 bg-[#1a1a28] rounded">
+                      {getEventIcon(ev.type)}
+                    </div>
+                    <div className="flex-1 flex flex-col justify-center min-w-0">
+                      <span className={`text-[11px] font-black uppercase leading-tight truncate ${
+                        ev.type === 'limit' ? 'text-red-400' : ev.type === 'summary' ? 'text-amber-400' : 'text-sky-400'
+                      }`}>
+                        {ev.message}
+                      </span>
+                      <span className="text-[10px] font-mono text-zinc-300 truncate">
+                        {ev.speedInfo}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
