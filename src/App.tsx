@@ -66,15 +66,15 @@ export default function App() {
   const [carConfig, setCarConfig] = useState<CarConfig>(() => {
     if (savedState?.carConfig) {
       const cfg = savedState.carConfig;
-      if (cfg.totalOdometerKm && cfg.totalOdometerKm < 149336) {
-        cfg.totalOdometerKm = 149337;
+      if (cfg.totalOdometerKm && cfg.totalOdometerKm < 149346) {
+        cfg.totalOdometerKm = 149347;
       }
       // Force update fuel level based on user prompt
       if (cfg.fuelLevel !== 49.7) {
         cfg.fuelLevel = 49.7;
         cfg.currentFuel = 'gasoline';
       }
-      return { ...cfg, totalOdometerKm: cfg.totalOdometerKm ?? 149337 };
+      return { ...cfg, totalOdometerKm: cfg.totalOdometerKm ?? 149347 };
     }
     return {
       model: 'Renault Clio',
@@ -84,7 +84,7 @@ export default function App() {
       fuelLevel: 49.7, // ~24.85 Litros
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
-      totalOdometerKm: 149337,
+      totalOdometerKm: 149347,
     };
   });
 
@@ -427,7 +427,7 @@ export default function App() {
         setCarConfig((prev) => ({
           ...prev,
           fuelLevel: Math.max(0, prev.fuelLevel - percentageConsumed),
-          totalOdometerKm: (prev.totalOdometerKm ?? 149337) + distanceKm,
+          totalOdometerKm: (prev.totalOdometerKm ?? 149347) + distanceKm,
         }));
       }
 
@@ -725,7 +725,7 @@ export default function App() {
             {/* Renault Clio Digital Odometer */}
             <div className="shrink-0">
               <OdometerDisplay
-                totalKm={carConfig.totalOdometerKm ?? 149337}
+                totalKm={carConfig.totalOdometerKm ?? 149347}
                 onOdometerChange={handleOdometerChange}
               />
             </div>
