@@ -31,6 +31,8 @@ import { FuelPhotoScannerModal } from './components/FuelPhotoScannerModal';
 import { QuickRefuelModal } from './components/QuickRefuelModal';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { CarConfig, TripsState, TripKey, OperatingMode, GpsState } from './types';
+import { getDoc, setDoc } from "firebase/firestore";
+import { carDocRef } from "./firebase";
 
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
   const R = 6371e3; // Earth radius in meters
@@ -62,14 +64,15 @@ export default function App() {
   const savedState = useRef(getSavedState()).current;
 
   const [carConfig, setCarConfig] = useState<CarConfig>(() => {
-    // If state was saved previously, update fuelLevel to 18.5% if it was near 23.5%
     if (savedState?.carConfig) {
       const cfg = savedState.carConfig;
       if (cfg.totalOdometerKm && cfg.totalOdometerKm < 149336) {
         cfg.totalOdometerKm = 149337;
       }
-      if (cfg.fuelLevel === 23.5 || cfg.fuelLevel === 45) {
-        return { ...cfg, fuelLevel: 18.5, currentFuel: 'gasoline', totalOdometerKm: cfg.totalOdometerKm ?? 149337 };
+      // Force update fuel level based on user prompt
+      if (cfg.fuelLevel !== 49.7) {
+        cfg.fuelLevel = 49.7;
+        cfg.currentFuel = 'gasoline';
       }
       return { ...cfg, totalOdometerKm: cfg.totalOdometerKm ?? 149337 };
     }
@@ -78,7 +81,7 @@ export default function App() {
       details: '2010 1.0 16V Hi-Flex',
       tankCapacity: 50,
       currentFuel: 'gasoline',
-      fuelLevel: 18.5, // Entre o 1º e o 2º traço acima da Reserva R (~9.25 Litros de 50L)
+      fuelLevel: 49.7, // ~24.85 Litros
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
       totalOdometerKm: 149337,
@@ -103,6 +106,30 @@ export default function App() {
   const [gpsDenied, setGpsDenied] = useState<boolean>(false);
   const [hudMode, setHudMode] = useState<boolean>(false);
   
+
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
+
+  // Sync with Cloud on mount
+  useEffect(() => {
+    const syncCloud = async () => {
+      try {
+        const docSnap = await getDoc(carDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.carConfig) setCarConfig(data.carConfig);
+          if (data.activeTripKey) setActiveTripKey(data.activeTripKey);
+          if (data.trips) setTrips(data.trips);
+          if (data.mode && data.mode !== 'pending') setMode(data.mode);
+        }
+      } catch (err) {
+        console.error("Error fetching from Firebase", err);
+      } finally {
+        setIsCloudSynced(true);
+      }
+    };
+    syncCloud();
+  }, []);
+
   const [prevSpeed, setPrevSpeed] = useState<number>(0);
   const [instantConsumption, setInstantConsumption] = useState<number>(0);
   const instantConsumptionRef = useRef<number>(0);
@@ -139,20 +166,28 @@ export default function App() {
     };
   });
 
-  // Save telemetry state to localStorage cache whenever changed
+  // Save telemetry state to localStorage AND Firebase whenever changed
   useEffect(() => {
+    if (!isCloudSynced) return; // Wait for initial cloud sync
+
     try {
       const payload = {
         carConfig,
         activeTripKey,
         trips,
         mode,
+        lastUpdated: Date.now()
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      
+      // Background sync to Firebase (handles offline persistence automatically)
+      setDoc(carDocRef, payload, { merge: true }).catch((err) => {
+        console.warn('Firebase sync delayed (offline mode):', err);
+      });
     } catch (e) {
-      console.error('Erro ao salvar estado no localStorage', e);
+      console.error('Erro ao salvar estado', e);
     }
-  }, [carConfig, activeTripKey, trips, mode]);
+  }, [carConfig, activeTripKey, trips, mode, isCloudSynced]);
 
   // Dynamic Instant Consumption Calculation (Oscillating with Acceleration/Deceleration)
   useEffect(() => {
