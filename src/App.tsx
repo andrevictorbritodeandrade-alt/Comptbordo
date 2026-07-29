@@ -66,6 +66,12 @@ export default function App() {
   const [carConfig, setCarConfig] = useState<CarConfig>(() => {
     if (savedState?.carConfig) {
       const cfg = savedState.carConfig;
+      if (cfg.totalOdometerKm < 149347) {
+        cfg.totalOdometerKm = 149347;
+      }
+      if (cfg.fuelLevel !== 49.7) {
+        cfg.fuelLevel = 49.7;
+      }
       return cfg;
     }
     return {
@@ -112,7 +118,12 @@ export default function App() {
           const cloudTime = data.lastUpdated || 0;
           
           if (cloudTime >= localTime) {
-            if (data.carConfig) setCarConfig(data.carConfig);
+            if (data.carConfig) {
+              const cfg = data.carConfig;
+              if (cfg.totalOdometerKm < 149347) cfg.totalOdometerKm = 149347;
+              if (cfg.fuelLevel !== 49.7) cfg.fuelLevel = 49.7;
+              setCarConfig(cfg);
+            }
             if (data.activeTripKey) setActiveTripKey(data.activeTripKey);
             if (data.trips) setTrips(data.trips);
             if (data.mode && data.mode !== 'pending') setMode(data.mode);
