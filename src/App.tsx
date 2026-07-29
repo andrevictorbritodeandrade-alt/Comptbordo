@@ -66,15 +66,7 @@ export default function App() {
   const [carConfig, setCarConfig] = useState<CarConfig>(() => {
     if (savedState?.carConfig) {
       const cfg = savedState.carConfig;
-      if (cfg.totalOdometerKm && cfg.totalOdometerKm < 149346) {
-        cfg.totalOdometerKm = 149347;
-      }
-      // Force update fuel level based on user prompt
-      if (cfg.fuelLevel !== 49.7) {
-        cfg.fuelLevel = 49.7;
-        cfg.currentFuel = 'gasoline';
-      }
-      return { ...cfg, totalOdometerKm: cfg.totalOdometerKm ?? 149347 };
+      return cfg;
     }
     return {
       model: 'Renault Clio',
@@ -116,10 +108,17 @@ export default function App() {
         const docSnap = await getDoc(carDocRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (data.carConfig) setCarConfig(data.carConfig);
-          if (data.activeTripKey) setActiveTripKey(data.activeTripKey);
-          if (data.trips) setTrips(data.trips);
-          if (data.mode && data.mode !== 'pending') setMode(data.mode);
+          const localTime = savedState?.lastUpdated || 0;
+          const cloudTime = data.lastUpdated || 0;
+          
+          if (cloudTime >= localTime) {
+            if (data.carConfig) setCarConfig(data.carConfig);
+            if (data.activeTripKey) setActiveTripKey(data.activeTripKey);
+            if (data.trips) setTrips(data.trips);
+            if (data.mode && data.mode !== 'pending') setMode(data.mode);
+          } else {
+            console.log("Local state is newer than cloud state. Skipping cloud override.");
+          }
         }
       } catch (err) {
         console.error("Error fetching from Firebase", err);
