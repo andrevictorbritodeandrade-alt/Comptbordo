@@ -20,7 +20,9 @@ import {
   VolumeX,
   Plus,
   Minus,
-  AlertTriangle
+  AlertTriangle,
+  Sun,
+  Activity
 } from 'lucide-react';
 import { SpeedCanvas } from './components/SpeedCanvas';
 import { FuelGaugeCanvas } from './components/FuelGaugeCanvas';
@@ -69,8 +71,10 @@ export default function App() {
       if (cfg.totalOdometerKm < 149347) {
         cfg.totalOdometerKm = 149347;
       }
-      if (cfg.fuelLevel !== 49.7) {
-        cfg.fuelLevel = 49.7;
+      // Force update to 18.0% once based on Clio photo
+      if (localStorage.getItem('fuel_override_18_done_v2') !== 'true') {
+        cfg.fuelLevel = 18.0;
+        localStorage.setItem('fuel_override_18_done_v2', 'true');
       }
       return cfg;
     }
@@ -79,7 +83,7 @@ export default function App() {
       details: '2010 1.0 16V Hi-Flex',
       tankCapacity: 50,
       currentFuel: 'gasoline',
-      fuelLevel: 49.7, // ~24.85 Litros
+      fuelLevel: 18.0, // ~9.0 Litros (Atualizado via foto do painel)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
       totalOdometerKm: 149347,
@@ -121,7 +125,10 @@ export default function App() {
             if (data.carConfig) {
               const cfg = data.carConfig;
               if (cfg.totalOdometerKm < 149347) cfg.totalOdometerKm = 149347;
-              if (cfg.fuelLevel !== 49.7) cfg.fuelLevel = 49.7;
+              if (localStorage.getItem('fuel_override_18_done_v2') !== 'true') {
+                cfg.fuelLevel = 18.0;
+                localStorage.setItem('fuel_override_18_done_v2', 'true');
+              }
               setCarConfig(cfg);
             }
             if (data.activeTripKey) setActiveTripKey(data.activeTripKey);
@@ -234,6 +241,120 @@ export default function App() {
     setInstantConsumption(cons);
   }, [speed, carConfig.currentFuel, carConfig.avgConsumptionGasoline, carConfig.avgConsumptionEthanol]);
 
+  const [wakeLockActive, setWakeLockActive] = useState<boolean>(false);
+  const wakeLockRef = useRef<any>(null);
+
+  const [backgroundAudioActive, setBackgroundAudioActive] = useState<boolean>(true);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const startSilentAudio = useCallback(() => {
+    if (!backgroundAudioActive) return;
+    try {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        return;
+      }
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      
+      const ctx = new AudioContextClass();
+      audioContextRef.current = ctx;
+
+      // We generate a tiny buffer of silence and loop it to keep the audio thread alive
+      const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); // 2 seconds of silence
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      
+      source.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      source.start(0);
+
+      console.log('Background silent audio track started successfully');
+    } catch (e) {
+      console.warn('Silent audio start error:', e);
+    }
+  }, [backgroundAudioActive]);
+
+  const stopSilentAudio = useCallback(() => {
+    try {
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      console.log('Background silent audio track stopped');
+    } catch (e) {
+      console.warn('Silent audio stop error:', e);
+    }
+  }, []);
+
+  // Control background audio based on mode
+  useEffect(() => {
+    if (mode === 'real' || mode === 'simulated') {
+      startSilentAudio();
+    } else {
+      stopSilentAudio();
+    }
+    return () => {
+      stopSilentAudio();
+    };
+  }, [mode, backgroundAudioActive, startSilentAudio, stopSilentAudio]);
+
+  const requestWakeLock = useCallback(async () => {
+    if (!('wakeLock' in navigator)) {
+      console.log('Screen Wake Lock API not supported');
+      return;
+    }
+    try {
+      if (wakeLockRef.current) return;
+      wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      setWakeLockActive(true);
+      console.log('Screen Wake Lock acquired');
+      
+      wakeLockRef.current.addEventListener('release', () => {
+        wakeLockRef.current = null;
+        setWakeLockActive(false);
+        console.log('Screen Wake Lock was released');
+      });
+    } catch (err: any) {
+      console.warn(`Failed to acquire wake lock: ${err.message}`);
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(async () => {
+    if (wakeLockRef.current) {
+      await wakeLockRef.current.release();
+      wakeLockRef.current = null;
+      setWakeLockActive(false);
+    }
+  }, []);
+
+  // Screen Wake Lock controller based on active tracking
+  useEffect(() => {
+    if (mode === 'real') {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+  }, [mode, requestWakeLock, releaseWakeLock]);
+
+  // Re-acquire Wake Lock when tab becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && mode === 'real') {
+        await requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [mode, requestWakeLock, releaseWakeLock]);
+
   // References for GPS & simulation
   const simulationRef = useRef<NodeJS.Timeout | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -294,6 +415,8 @@ export default function App() {
         (position) => {
           const now = Date.now();
           let currentSpeedKmh = 0;
+          let distanceKm = 0;
+          let timeDiff = 0;
 
           if (position.coords.speed !== null && position.coords.speed !== undefined) {
             currentSpeedKmh = position.coords.speed * 3.6;
@@ -304,7 +427,7 @@ export default function App() {
               position.coords.latitude,
               position.coords.longitude
             );
-            const timeDiff = (now - lastPosRef.current.timestamp) / 1000;
+            timeDiff = (now - lastPosRef.current.timestamp) / 1000;
             if (timeDiff > 0) {
               currentSpeedKmh = (dist / timeDiff) * 3.6;
             }
@@ -313,9 +436,68 @@ export default function App() {
           // Anti-drift filter for static position
           if (currentSpeedKmh < 2.0) currentSpeedKmh = 0;
 
-          lastPosRef.current = { coords: position.coords, timestamp: now };
+          // Calculate distance and elapsed time from previous GPS tick
+          if (lastPosRef.current) {
+            const distMeters = calculateDistance(
+              lastPosRef.current.coords.latitude,
+              lastPosRef.current.coords.longitude,
+              position.coords.latitude,
+              position.coords.longitude
+            );
+            // Ignore minor jitter when stopped (under 15 meters) unless speed indicates we are definitely driving
+            if (distMeters > 15 || currentSpeedKmh >= 2.0) {
+              distanceKm = distMeters / 1000;
+              timeDiff = (now - lastPosRef.current.timestamp) / 1000;
+            }
+          }
 
+          lastPosRef.current = { coords: position.coords, timestamp: now };
           setSpeed(currentSpeedKmh);
+
+          // Accumulate background/foreground mileage and fuel directly via GPS ticks
+          if (distanceKm > 0) {
+            const currentConfig = carConfigRef.current;
+            const baseConsumption =
+              currentConfig.currentFuel === 'gasoline'
+                ? currentConfig.avgConsumptionGasoline
+                : currentConfig.avgConsumptionEthanol;
+
+            const litersConsumed = baseConsumption > 0 ? distanceKm / baseConsumption : 0;
+            const percentageConsumed = (litersConsumed / currentConfig.tankCapacity) * 100;
+
+            setCarConfig((prev) => ({
+              ...prev,
+              fuelLevel: Math.max(0, prev.fuelLevel - percentageConsumed),
+              totalOdometerKm: (prev.totalOdometerKm ?? 149347) + distanceKm,
+            }));
+
+            // Update Active Trip
+            const currentTripKey = activeTripKeyRef.current;
+            setTrips((prevTrips) => {
+              const trip = prevTrips[currentTripKey];
+              if (!trip.active || trip.paused) return prevTrips;
+
+              const instantCons = instantConsumptionRef.current;
+              const fuelUsed =
+                distanceKm > 0 && instantCons > 0 ? distanceKm / instantCons : 0;
+
+              const newSamples = [...trip.speedSamples, currentSpeedKmh];
+              if (newSamples.length > 120) newSamples.shift();
+
+              return {
+                ...prevTrips,
+                [currentTripKey]: {
+                  ...trip,
+                  // Add timeDiff safely (ignore giant jumps if browser was hibernated, max 60s of time counted per interval)
+                  elapsedTime: trip.elapsedTime + (timeDiff > 0 && timeDiff < 60 ? timeDiff : 1),
+                  distance: trip.distance + (distanceKm * 1000),
+                  totalFuelConsumed: trip.totalFuelConsumed + fuelUsed,
+                  speedSamples: newSamples,
+                },
+              };
+            });
+          }
+
           const acc = position.coords.accuracy ? Math.round(position.coords.accuracy) : 0;
           setGpsState({
             active: true,
@@ -407,6 +589,11 @@ export default function App() {
     carConfigRef.current = carConfig;
   }, [carConfig]);
 
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
   // Main tick for fuel consumption and trip tracking - Runs smoothly without interval resets
   useEffect(() => {
     lastTimestampRef.current = Date.now();
@@ -419,64 +606,86 @@ export default function App() {
       const currentSpeed = speedRef.current;
       const currentTripKey = activeTripKeyRef.current;
       const currentConfig = carConfigRef.current;
+      const currentMode = modeRef.current;
 
-      // Mileage and Fuel accumulation based on real speed
-      if (currentSpeed > 0) {
-        const baseConsumption =
-          currentConfig.currentFuel === 'gasoline'
-            ? currentConfig.avgConsumptionGasoline
-            : currentConfig.avgConsumptionEthanol;
+      if (currentMode === 'simulated') {
+        // Mileage and Fuel accumulation based on simulated speed
+        if (currentSpeed > 0) {
+          const baseConsumption =
+            currentConfig.currentFuel === 'gasoline'
+              ? currentConfig.avgConsumptionGasoline
+              : currentConfig.avgConsumptionEthanol;
 
-        // Distance covered in km = speed(km/h) * (deltaSeconds / 3600)
-        const distanceKm = (currentSpeed / 3600) * deltaSeconds;
-        // Liters consumed = distance / kmPerLiter
-        const litersConsumed = baseConsumption > 0 ? distanceKm / baseConsumption : 0;
-        // % of tank consumed
-        const percentageConsumed = (litersConsumed / currentConfig.tankCapacity) * 100;
+          // Distance covered in km = speed(km/h) * (deltaSeconds / 3600)
+          const distanceKm = (currentSpeed / 3600) * deltaSeconds;
+          // Liters consumed = distance / kmPerLiter
+          const litersConsumed = baseConsumption > 0 ? distanceKm / baseConsumption : 0;
+          // % of tank consumed
+          const percentageConsumed = (litersConsumed / currentConfig.tankCapacity) * 100;
 
-        setCarConfig((prev) => ({
-          ...prev,
-          fuelLevel: Math.max(0, prev.fuelLevel - percentageConsumed),
-          totalOdometerKm: (prev.totalOdometerKm ?? 149347) + distanceKm,
-        }));
+          setCarConfig((prev) => ({
+            ...prev,
+            fuelLevel: Math.max(0, prev.fuelLevel - percentageConsumed),
+            totalOdometerKm: (prev.totalOdometerKm ?? 149347) + distanceKm,
+          }));
+        }
+
+        // Update Active Trip
+        setTrips((prevTrips) => {
+          const trip = prevTrips[currentTripKey];
+          if (!trip.active || trip.paused) return prevTrips;
+
+          const speedMs = currentSpeed / 3.6;
+          const distanceAdded = speedMs * deltaSeconds;
+
+          const instantCons = instantConsumptionRef.current;
+
+          const fuelUsed =
+            distanceAdded > 0 && instantCons > 0 ? distanceAdded / 1000 / instantCons : 0;
+
+          const newSamples = [...trip.speedSamples, currentSpeed];
+          if (newSamples.length > 120) newSamples.shift();
+
+          const isMoving = currentSpeed > 0;
+
+          return {
+            ...prevTrips,
+            [currentTripKey]: {
+              ...trip,
+              // Tempo líquido de viagem: só incrementa quando o veículo estiver em movimento (velocidade > 0)
+              elapsedTime: isMoving ? trip.elapsedTime + deltaSeconds : trip.elapsedTime,
+              distance: trip.distance + distanceAdded,
+              totalFuelConsumed: trip.totalFuelConsumed + fuelUsed,
+              speedSamples: newSamples,
+            },
+          };
+        });
+      } else if (currentMode === 'real') {
+        // In real GPS mode, accumulation is handled with 100% precision in watchPosition.
+        // We only gather speed samples here for the stock chart visual.
+        setTrips((prevTrips) => {
+          const trip = prevTrips[currentTripKey];
+          if (!trip.active || trip.paused) return prevTrips;
+
+          const newSamples = [...trip.speedSamples, currentSpeed];
+          if (newSamples.length > 120) newSamples.shift();
+
+          return {
+            ...prevTrips,
+            [currentTripKey]: {
+              ...trip,
+              speedSamples: newSamples,
+            },
+          };
+        });
       }
-
-      // Update Active Trip
-      setTrips((prevTrips) => {
-        const trip = prevTrips[currentTripKey];
-        if (!trip.active || trip.paused) return prevTrips;
-
-        const speedMs = currentSpeed / 3.6;
-        const distanceAdded = speedMs * deltaSeconds;
-
-        const instantCons = instantConsumptionRef.current;
-
-        const fuelUsed =
-          distanceAdded > 0 && instantCons > 0 ? distanceAdded / 1000 / instantCons : 0;
-
-        const newSamples = [...trip.speedSamples, currentSpeed];
-        if (newSamples.length > 120) newSamples.shift();
-
-        const isMoving = currentSpeed > 0;
-
-        return {
-          ...prevTrips,
-          [currentTripKey]: {
-            ...trip,
-            // Tempo líquido de viagem: só incrementa quando o veículo estiver em movimento (velocidade > 0)
-            elapsedTime: isMoving ? trip.elapsedTime + deltaSeconds : trip.elapsedTime,
-            distance: trip.distance + distanceAdded,
-            totalFuelConsumed: trip.totalFuelConsumed + fuelUsed,
-            speedSamples: newSamples,
-          },
-        };
-      });
     }, 1000);
 
     return () => clearInterval(interval);
   }, []);
 
   const toggleTripState = () => {
+    startSilentAudio();
     setTrips((prev) => {
       const current = prev[activeTripKey];
       if (!current.active) {
@@ -585,14 +794,20 @@ export default function App() {
             )}
 
             <button
-              onClick={() => setMode('real')}
+              onClick={() => {
+                setMode('real');
+                startSilentAudio();
+              }}
               className="w-full bg-[#c19a6b] hover:bg-[#a88255] text-black font-black py-3.5 text-xs uppercase tracking-[0.2em] rounded-xl mb-3 flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg"
             >
               <CheckCircle size={18} /> {gpsDenied ? 'Tentar GPS Novamente' : 'Iniciar GPS Real'}
             </button>
 
             <button
-              onClick={() => setMode('simulated')}
+              onClick={() => {
+                setMode('simulated');
+                startSilentAudio();
+              }}
               className="w-full bg-[#141418] border border-[#2a2a32] hover:bg-[#1a1a20] text-zinc-200 font-bold py-3.5 text-xs uppercase tracking-[0.15em] rounded-xl flex items-center justify-center gap-2 transition-colors"
             >
               <Gauge size={18} className="text-[#c19a6b]" /> Modo Simulado
@@ -762,6 +977,55 @@ export default function App() {
                   )}
                 </button>
               ))}
+            </div>
+
+            {/* Background Tracking Status & Wake Lock Banner */}
+            <div className="bg-[#12121c]/90 border border-[#222232] rounded-xl p-2.5 flex items-center justify-between gap-2.5 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#c19a6b]/10 border border-[#c19a6b]/20 flex items-center justify-center text-[#c19a6b]">
+                  <Activity size={16} className="animate-pulse" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-[#c19a6b] leading-none">
+                    Rastreamento GPS Ativo
+                  </p>
+                  <p className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">
+                    Cálculo de combustível contínuo em 2º plano
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    const nextVal = !backgroundAudioActive;
+                    setBackgroundAudioActive(nextVal);
+                    if (nextVal) {
+                      startSilentAudio();
+                    } else {
+                      stopSilentAudio();
+                    }
+                  }}
+                  className={`text-[9px] font-black px-2.5 py-1 rounded-md flex items-center gap-1 transition-all ${
+                    backgroundAudioActive
+                      ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
+                      : 'text-zinc-500 bg-zinc-500/10 border border-zinc-500/30 hover:text-zinc-400'
+                  }`}
+                  title={backgroundAudioActive ? 'Áudio de 2º Plano Ativo (Mantém o app ativo mesmo minimizado)' : 'Áudio de 2º Plano Desativado'}
+                >
+                  {backgroundAudioActive ? <Volume2 size={10} className="animate-pulse" /> : <VolumeX size={10} />}
+                  2º PLANO
+                </button>
+
+                {wakeLockActive ? (
+                  <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-md flex items-center gap-1 animate-pulse">
+                    <Sun size={10} /> TELA ATIVA
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-md flex items-center gap-1">
+                    ⚠️ TELA NORMAL
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* 4 Primary High-Visibility Trip Cards */}
