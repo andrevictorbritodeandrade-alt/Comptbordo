@@ -68,8 +68,8 @@ export default function App() {
   const [carConfig, setCarConfig] = useState<CarConfig>(() => {
     if (savedState?.carConfig) {
       const cfg = savedState.carConfig;
-      if (cfg.totalOdometerKm < 149347) {
-        cfg.totalOdometerKm = 149347;
+      if (cfg.totalOdometerKm < 149545) {
+        cfg.totalOdometerKm = 149545;
       }
       // Force update to 18.0% once based on Clio photo
       if (localStorage.getItem('fuel_override_18_done_v2') !== 'true') {
@@ -86,7 +86,7 @@ export default function App() {
       fuelLevel: 18.0, // ~9.0 Litros (Atualizado via foto do painel)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
-      totalOdometerKm: 149347,
+      totalOdometerKm: 149545,
     };
   });
 
@@ -124,7 +124,7 @@ export default function App() {
           if (cloudTime >= localTime) {
             if (data.carConfig) {
               const cfg = data.carConfig;
-              if (cfg.totalOdometerKm < 149347) cfg.totalOdometerKm = 149347;
+              if (cfg.totalOdometerKm < 149545) cfg.totalOdometerKm = 149545;
               if (localStorage.getItem('fuel_override_18_done_v2') !== 'true') {
                 cfg.fuelLevel = 18.0;
                 localStorage.setItem('fuel_override_18_done_v2', 'true');
@@ -468,7 +468,7 @@ export default function App() {
             setCarConfig((prev) => ({
               ...prev,
               fuelLevel: Math.max(0, prev.fuelLevel - percentageConsumed),
-              totalOdometerKm: (prev.totalOdometerKm ?? 149347) + distanceKm,
+              totalOdometerKm: (prev.totalOdometerKm ?? 149545) + distanceKm,
             }));
 
             // Update Active Trip
@@ -626,7 +626,7 @@ export default function App() {
           setCarConfig((prev) => ({
             ...prev,
             fuelLevel: Math.max(0, prev.fuelLevel - percentageConsumed),
-            totalOdometerKm: (prev.totalOdometerKm ?? 149347) + distanceKm,
+            totalOdometerKm: (prev.totalOdometerKm ?? 149545) + distanceKm,
           }));
         }
 
@@ -950,7 +950,7 @@ export default function App() {
             {/* Renault Clio Digital Odometer */}
             <div className="shrink-0">
               <OdometerDisplay
-                totalKm={carConfig.totalOdometerKm ?? 149347}
+                totalKm={carConfig.totalOdometerKm ?? 149545}
                 onOdometerChange={handleOdometerChange}
               />
             </div>
