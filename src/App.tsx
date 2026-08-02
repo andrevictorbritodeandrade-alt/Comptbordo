@@ -989,42 +989,6 @@ export default function App() {
               ))}
             </div>
 
-            {/* Background Tracking Status & Wake Lock Banner */}
-            <div className="bg-[#12121c]/90 border border-[#222232] rounded-xl p-2.5 flex items-center justify-center gap-3 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => {
-                    const nextVal = !backgroundAudioActive;
-                    setBackgroundAudioActive(nextVal);
-                    if (nextVal) {
-                      startSilentAudio();
-                    } else {
-                      stopSilentAudio();
-                    }
-                  }}
-                  className={`text-[9px] font-black px-2.5 py-1 rounded-md flex items-center gap-1 transition-all ${
-                    backgroundAudioActive
-                      ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
-                      : 'text-zinc-500 bg-zinc-500/10 border border-zinc-500/30 hover:text-zinc-400'
-                  }`}
-                  title={backgroundAudioActive ? 'Áudio de 2º Plano Ativo (Mantém o app ativo mesmo minimizado)' : 'Áudio de 2º Plano Desativado'}
-                >
-                  {backgroundAudioActive ? <Volume2 size={10} className="animate-pulse" /> : <VolumeX size={10} />}
-                  2º PLANO
-                </button>
-
-                {wakeLockActive ? (
-                  <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-md flex items-center gap-1 animate-pulse">
-                    <Sun size={10} /> TELA ATIVA
-                  </span>
-                ) : (
-                  <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-md flex items-center gap-1">
-                    ⚠️ TELA NORMAL
-                  </span>
-                )}
-              </div>
-            </div>
-
             {/* 4 Primary High-Visibility Trip Cards */}
             <div className="grid grid-cols-2 gap-2.5 shrink-0 items-stretch">
               <div className="bg-[#12121c] border border-[#222232] p-3.5 sm:p-4 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
