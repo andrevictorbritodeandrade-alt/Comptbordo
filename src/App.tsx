@@ -990,20 +990,7 @@ export default function App() {
             </div>
 
             {/* Background Tracking Status & Wake Lock Banner */}
-            <div className="bg-[#12121c]/90 border border-[#222232] rounded-xl p-2.5 flex items-center justify-between gap-2.5 shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#c19a6b]/10 border border-[#c19a6b]/20 flex items-center justify-center text-[#c19a6b]">
-                  <Activity size={16} className="animate-pulse" />
-                </div>
-                <div className="text-left">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-[#c19a6b] leading-none">
-                    Rastreamento GPS Ativo
-                  </p>
-                  <p className="text-[10px] text-zinc-400 font-bold mt-1 leading-tight">
-                    Cálculo de combustível contínuo em 2º plano
-                  </p>
-                </div>
-              </div>
+            <div className="bg-[#12121c]/90 border border-[#222232] rounded-xl p-2.5 flex items-center justify-center gap-3 shrink-0">
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
