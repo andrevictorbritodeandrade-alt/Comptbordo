@@ -76,10 +76,10 @@ export default function App() {
       if (cfg.totalOdometerKm < 149545.8) {
         cfg.totalOdometerKm = 149545.8;
       }
-      // Force update to 18.0% once based on Clio photo
-      if (localStorage.getItem('fuel_override_18_done_v2') !== 'true') {
-        cfg.fuelLevel = 18.0;
-        localStorage.setItem('fuel_override_18_done_v2', 'true');
+      // Force update to 68.75% once based on latest refueling Clio photo
+      if (localStorage.getItem('fuel_override_68_75_done') !== 'true') {
+        cfg.fuelLevel = 68.75;
+        localStorage.setItem('fuel_override_68_75_done', 'true');
       }
       return cfg;
     }
@@ -88,7 +88,7 @@ export default function App() {
       details: '2010 1.0 16V Hi-Flex',
       tankCapacity: 50,
       currentFuel: 'gasoline',
-      fuelLevel: 18.0, // ~9.0 Litros (Atualizado via foto do painel)
+      fuelLevel: 68.75, // ~34.4 Litros (Atualizado via nova foto do painel após abastecimento)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
       totalOdometerKm: 149545.8,
@@ -135,9 +135,9 @@ export default function App() {
                 localStorage.setItem('odometer_offset_800m_applied', 'true');
               }
               if (cfg.totalOdometerKm < 149545.8) cfg.totalOdometerKm = 149545.8;
-              if (localStorage.getItem('fuel_override_18_done_v2') !== 'true') {
-                cfg.fuelLevel = 18.0;
-                localStorage.setItem('fuel_override_18_done_v2', 'true');
+              if (localStorage.getItem('fuel_override_68_75_done') !== 'true') {
+                cfg.fuelLevel = 68.75;
+                localStorage.setItem('fuel_override_68_75_done', 'true');
               }
               setCarConfig(cfg);
             }
