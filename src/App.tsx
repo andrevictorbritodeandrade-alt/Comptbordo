@@ -76,10 +76,10 @@ export default function App() {
       if (cfg.totalOdometerKm < 149545.8) {
         cfg.totalOdometerKm = 149545.8;
       }
-      // Force update to 43.0% once based on latest refueling Clio photo
-      if (localStorage.getItem('fuel_override_43_done') !== 'true') {
-        cfg.fuelLevel = 43.0;
-        localStorage.setItem('fuel_override_43_done', 'true');
+      // Force update to 12.5% once based on latest refueling Clio photo (2nd tick above bottom)
+      if (localStorage.getItem('fuel_override_12_5_done_v2') !== 'true') {
+        cfg.fuelLevel = 12.5;
+        localStorage.setItem('fuel_override_12_5_done_v2', 'true');
       }
       return cfg;
     }
@@ -88,7 +88,7 @@ export default function App() {
       details: '2010 1.0 16V Hi-Flex',
       tankCapacity: 50,
       currentFuel: 'gasoline',
-      fuelLevel: 43.0, // ~21.5 Litros (Atualizado via nova foto do painel após abastecimento)
+      fuelLevel: 12.5, // ~6.25 Litros (Atualizado via nova foto do painel após uso, no 2º tracinho)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
       totalOdometerKm: 149545.8,
@@ -113,6 +113,184 @@ export default function App() {
   const [gpsDenied, setGpsDenied] = useState<boolean>(false);
   const [hudMode, setHudMode] = useState<boolean>(false);
   
+  // Real-time Clock and Date
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  
+  // Coordinates & Weather Info
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [weather, setWeather] = useState<{
+    temp: number;
+    tempMax: number;
+    tempMin: number;
+    rainProb: number;
+    weatherCode: number;
+    description: string;
+    emoji: string;
+    isRaining: boolean;
+    cityName: string;
+  } | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
+  const lastFetchedCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
+
+  // Fetch city name from OpenStreetMap Nominatim
+  const fetchCityName = async (lat: number, lon: number): Promise<string> => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`, {
+        headers: {
+          'Accept-Language': 'pt-BR',
+          'User-Agent': 'ClioDashboard/1.0'
+        }
+      });
+      const data = await res.json();
+      return data.address.city || data.address.town || data.address.suburb || data.address.village || 'Sua Rota';
+    } catch (e) {
+      return 'Sua Rota';
+    }
+  };
+
+  const fetchWeatherInfo = async (lat: number, lon: number) => {
+    setWeatherLoading(true);
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`;
+      const res = await fetch(url);
+      const data = await res.json();
+      
+      const code = data.current.weather_code;
+      const temp = data.current.temperature_2m;
+      const isRaining = data.current.precipitation > 0;
+      const tempMax = data.daily.temperature_2m_max[0];
+      const tempMin = data.daily.temperature_2m_min[0];
+      const rainProb = data.daily.precipitation_probability_max[0];
+      
+      // Map WMO codes
+      let description = 'Céu Limpo';
+      let emoji = '☀️';
+      
+      if (code === 0) {
+        description = 'Céu Limpo';
+        emoji = '☀️';
+      } else if (code >= 1 && code <= 3) {
+        description = 'Parcialmente Nublado';
+        emoji = '🌤️';
+      } else if (code === 45 || code === 48) {
+        description = 'Névoa';
+        emoji = '🌫️';
+      } else if ((code >= 51 && code <= 57) || (code >= 61 && code <= 67) || (code >= 80 && code <= 82)) {
+        description = isRaining ? 'Chovendo' : 'Chuva';
+        emoji = '🌧️';
+      } else if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) {
+        description = 'Neve';
+        emoji = '❄️';
+      } else if (code >= 95) {
+        description = 'Tempestade';
+        emoji = '⛈️';
+      }
+      
+      const city = await fetchCityName(lat, lon);
+      
+      setWeather({
+        temp,
+        tempMax,
+        tempMin,
+        rainProb,
+        weatherCode: code,
+        description,
+        emoji,
+        isRaining,
+        cityName: city
+      });
+    } catch (err) {
+      console.error('Erro ao buscar previsão do tempo:', err);
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
+
+  // Clock ticks
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Initial GPS grab & fallback weather loading
+  useEffect(() => {
+    const defaultLat = -23.55052;
+    const defaultLon = -46.633308;
+
+    const triggerInitialFetch = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            setCoords({ latitude: lat, longitude: lon });
+            lastFetchedCoordsRef.current = { latitude: lat, longitude: lon };
+            fetchWeatherInfo(lat, lon);
+          },
+          (err) => {
+            console.warn('GPS inicial para clima não concedido, usando padrão:', err.message);
+            setCoords({ latitude: defaultLat, longitude: defaultLon });
+            lastFetchedCoordsRef.current = { latitude: defaultLat, longitude: defaultLon };
+            fetchWeatherInfo(defaultLat, defaultLon);
+          },
+          { enableHighAccuracy: false, timeout: 5000 }
+        );
+      } else {
+        setCoords({ latitude: defaultLat, longitude: defaultLon });
+        lastFetchedCoordsRef.current = { latitude: defaultLat, longitude: defaultLon };
+        fetchWeatherInfo(defaultLat, defaultLon);
+      }
+    };
+
+    triggerInitialFetch();
+
+    // 30 minute interval
+    const weatherInterval = setInterval(() => {
+      const current = lastFetchedCoordsRef.current || { latitude: defaultLat, longitude: defaultLon };
+      fetchWeatherInfo(current.latitude, current.longitude);
+    }, 30 * 60 * 1000);
+
+    return () => clearInterval(weatherInterval);
+  }, []);
+
+  // Fetch weather when coords changed significantly (> 2km)
+  useEffect(() => {
+    if (!coords) return;
+    const last = lastFetchedCoordsRef.current;
+    if (!last) {
+      lastFetchedCoordsRef.current = coords;
+      fetchWeatherInfo(coords.latitude, coords.longitude);
+    } else {
+      const distance = calculateDistance(last.latitude, last.longitude, coords.latitude, coords.longitude);
+      if (distance > 2000) {
+        lastFetchedCoordsRef.current = coords;
+        fetchWeatherInfo(coords.latitude, coords.longitude);
+      }
+    }
+  }, [coords]);
+
+  const getFormattedDate = (date: Date) => {
+    const daysOfWeek = [
+      'Domingo',
+      'Segunda-feira',
+      'Terça-feira',
+      'Quarta-feira',
+      'Quinta-feira',
+      'Sexta-feira',
+      'Sábado'
+    ];
+    const dayOfWeek = daysOfWeek[date.getDay()];
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return {
+      dayOfWeek,
+      dateStr: `${day}/${month}/${year}`
+    };
+  };
+  
 
   const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
 
@@ -135,9 +313,9 @@ export default function App() {
                 localStorage.setItem('odometer_offset_800m_applied', 'true');
               }
               if (cfg.totalOdometerKm < 149545.8) cfg.totalOdometerKm = 149545.8;
-              if (localStorage.getItem('fuel_override_43_done') !== 'true') {
-                cfg.fuelLevel = 43.0;
-                localStorage.setItem('fuel_override_43_done', 'true');
+              if (localStorage.getItem('fuel_override_12_5_done_v2') !== 'true') {
+                cfg.fuelLevel = 12.5;
+                localStorage.setItem('fuel_override_12_5_done_v2', 'true');
               }
               setCarConfig(cfg);
             }
@@ -463,6 +641,10 @@ export default function App() {
 
           lastPosRef.current = { coords: position.coords, timestamp: now };
           setSpeed(currentSpeedKmh);
+          setCoords({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
 
           // Accumulate background/foreground mileage and fuel directly via GPS ticks
           if (distanceKm > 0) {
@@ -567,7 +749,7 @@ export default function App() {
     }));
   };
 
-  const handleQuickRefuel = (additionalLiters: number, fullTank?: boolean) => {
+  const handleQuickRefuel = (additionalLiters: number, fullTank?: boolean, fuelType?: 'gasoline' | 'ethanol') => {
     setCarConfig((prev) => {
       let newFuelLevel = 100;
       if (!fullTank) {
@@ -578,6 +760,7 @@ export default function App() {
       return {
         ...prev,
         fuelLevel: Math.min(100, Math.max(0, newFuelLevel)),
+        currentFuel: fuelType || prev.currentFuel,
       };
     });
     setShowQuickRefuelModal(false);
@@ -829,14 +1012,14 @@ export default function App() {
       {/* Main Dashboard Layout - Full Screen Car Head Unit Optimized */}
       <div className="w-full h-full flex flex-col justify-between gap-2 flex-1 max-w-none overflow-hidden">
         {/* Header Bar */}
-        <header className="flex justify-between items-center px-3 py-2 bg-[#09090d] border border-[#1e1e28] rounded-2xl shadow-xl shrink-0">
+        <header className="flex justify-between items-center px-3 py-2 bg-[#09090d] border border-[#1e1e28] rounded-2xl shadow-xl shrink-0 gap-2">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 border border-[#c19a6b] rounded-xl flex items-center justify-center text-[#c19a6b] bg-[#c19a6b]/15 shrink-0">
               <div className="w-3 h-3 bg-[#c19a6b] rounded-full animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-black text-white leading-none tracking-tight">
+                <h1 className="text-sm sm:text-lg font-black text-white leading-none tracking-tight">
                   {carConfig.model}
                 </h1>
                 <button
@@ -846,13 +1029,73 @@ export default function App() {
                       currentFuel: prev.currentFuel === 'gasoline' ? 'ethanol' : 'gasoline',
                     }))
                   }
-                  className="text-[#c19a6b] bg-[#c19a6b]/15 hover:bg-[#c19a6b]/25 border border-[#c19a6b]/40 px-2.5 py-0.5 text-[10px] sm:text-xs font-black rounded-full tracking-wider transition-all active:scale-95"
+                  className="text-[#c19a6b] bg-[#c19a6b]/15 hover:bg-[#c19a6b]/25 border border-[#c19a6b]/40 px-2.5 py-0.5 text-[9px] sm:text-xs font-black rounded-full tracking-wider transition-all active:scale-95"
                 >
                   {carConfig.currentFuel === 'gasoline' ? '⛽ GASOLINA' : '🌿 ETANOL'}
                 </button>
               </div>
-              <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5 hidden xs:block">{carConfig.details}</div>
+              <div className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5 hidden xs:block">{carConfig.details}</div>
             </div>
+          </div>
+
+          {/* Dynamic Clock, Date & GPS Weather Info - Highly Polished Car HUD Center Console */}
+          <div className="flex flex-col items-center justify-center bg-[#0d0d16] border border-[#222234] rounded-2xl px-2.5 sm:px-4 py-1 shadow-[inset_0_0_8px_rgba(0,0,0,0.8)] select-none relative overflow-hidden min-w-[120px] sm:min-w-[220px] md:min-w-[280px]">
+            {/* Clock with seconds - glowing amber */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs sm:text-base md:text-lg font-black text-amber-400 font-mono tracking-widest drop-shadow-[0_0_8px_rgba(245,158,11,0.8)]">
+                {currentTime.toLocaleTimeString('pt-BR')}
+              </span>
+            </div>
+
+            {/* Day & Date - glowing emerald */}
+            <div className="text-[7px] sm:text-[9px] md:text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 mt-0.5">
+              <span>{getFormattedDate(currentTime).dayOfWeek}</span>
+              <span className="w-1 h-1 rounded-full bg-zinc-600" />
+              <span className="text-emerald-400 font-black drop-shadow-[0_0_5px_rgba(52,211,153,0.7)]">
+                {getFormattedDate(currentTime).dateStr}
+              </span>
+            </div>
+
+            {/* Weather Info */}
+            {weather ? (
+              <div className="flex items-center gap-1 md:gap-1.5 mt-0.5 md:mt-1 px-1 sm:px-2.5 py-0.5 bg-[#141424] rounded-xl border border-[#2c2c42] shadow-sm text-[7px] sm:text-[10px] md:text-[11px] font-extrabold text-zinc-200">
+                <span className="text-[10px] sm:text-xs select-none">
+                  {weather.emoji}
+                </span>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-white font-black drop-shadow-[0_0_4px_rgba(255,255,255,0.6)]">
+                    {weather.temp.toFixed(1)}°C
+                  </span>
+                  <span className="text-zinc-500 font-bold text-[7px] sm:text-[9px]">
+                    ({weather.tempMin.toFixed(0)}°/{weather.tempMax.toFixed(0)}°)
+                  </span>
+                </div>
+                <span className="w-0.5 h-0.5 sm:w-1 sm:h-1 rounded-full bg-zinc-600" />
+                <span className="text-[#c19a6b] font-black uppercase text-[6px] sm:text-[9px] tracking-wide max-w-[40px] sm:max-w-none truncate">
+                  {weather.cityName}
+                </span>
+                {weather.rainProb > 0 ? (
+                  <>
+                    <span className="w-0.5 h-0.5 sm:w-1 sm:h-1 rounded-full bg-zinc-600" />
+                    <span className="text-blue-400 font-black flex items-center gap-0.5 text-[6px] sm:text-[9px] drop-shadow-[0_0_4px_rgba(96,165,250,0.5)]">
+                      🌧️ {weather.rainProb}%
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-0.5 h-0.5 sm:w-1 sm:h-1 rounded-full bg-zinc-600" />
+                    <span className="text-amber-500 font-black flex items-center gap-0.5 text-[6px] sm:text-[9px]">
+                      ☀️ Sem Chuva
+                    </span>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="text-[6px] sm:text-[9px] text-zinc-500 mt-0.5 md:mt-1 animate-pulse flex items-center gap-1 font-bold uppercase tracking-wider">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                Sincronizando clima...
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
