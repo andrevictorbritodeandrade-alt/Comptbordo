@@ -1012,79 +1012,53 @@ export default function App() {
       {/* Main Dashboard Layout - Full Screen Car Head Unit Optimized */}
       <div className="w-full h-full flex flex-col justify-between gap-2 flex-1 max-w-none overflow-hidden">
         {/* Header Bar */}
-        <header className="flex justify-between items-center px-3 py-2 bg-[#09090d] border border-[#1e1e28] rounded-2xl shadow-xl shrink-0 gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 border border-[#c19a6b] rounded-xl flex items-center justify-center text-[#c19a6b] bg-[#c19a6b]/15 shrink-0">
-              <div className="w-3 h-3 bg-[#c19a6b] rounded-full animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm sm:text-lg font-black text-white leading-none tracking-tight">
-                  {carConfig.model}
-                </h1>
-                <button
-                  onClick={() =>
-                    setCarConfig((prev) => ({
-                      ...prev,
-                      currentFuel: prev.currentFuel === 'gasoline' ? 'ethanol' : 'gasoline',
-                    }))
-                  }
-                  className="text-[#c19a6b] bg-[#c19a6b]/15 hover:bg-[#c19a6b]/25 border border-[#c19a6b]/40 px-2.5 py-0.5 text-[9px] sm:text-xs font-black rounded-full tracking-wider transition-all active:scale-95"
-                >
-                  {carConfig.currentFuel === 'gasoline' ? '⛽ GASOLINA' : '🌿 ETANOL'}
-                </button>
-              </div>
-              <div className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5 hidden xs:block">{carConfig.details}</div>
-            </div>
-          </div>
-
-          {/* Dynamic Distributed Clock, Date & GPS Weather Info - Highly Polished Car HUD Center Console */}
-          <div className="flex-1 flex flex-col md:flex-row items-center justify-around gap-3 px-2 sm:px-4 py-1.5 bg-[#0b0b13] border border-[#222234] rounded-2xl shadow-[inset_0_0_12px_rgba(0,0,0,0.8)] select-none">
-            
-            {/* 1. Day of Week + Date - glowing emerald, bold and large */}
-            <div className="flex items-center gap-2 bg-[#121220] border border-emerald-500/20 rounded-xl px-3.5 py-1.5 shadow-[0_0_10px_rgba(16,185,129,0.15)] transition-all">
-              <span className="text-xl sm:text-2xl animate-pulse">📅</span>
-              <div className="flex flex-col items-start leading-tight">
-                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Data</span>
+        <header className="flex justify-between items-center px-3 py-2 bg-[#09090d] border border-[#1e1e28] rounded-2xl shadow-xl shrink-0 gap-3 overflow-x-auto">
+          {/* Left/Center Section: Date, Time & Weather aligned to left with large typography */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-1 min-w-0">
+            {/* 1. Day of Week + Date - glowing emerald */}
+            <div className="flex items-center gap-2 bg-[#121220] border border-emerald-500/25 rounded-xl px-3 py-1.5 shadow-[0_0_10px_rgba(16,185,129,0.12)] shrink-0">
+              <span className="text-lg sm:text-xl">📅</span>
+              <div className="flex flex-col justify-center leading-none">
+                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Data</span>
                 <span className="text-sm sm:text-base md:text-lg font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)] whitespace-nowrap">
                   {getFormattedDate(currentTime).dayOfWeek}, {getFormattedDate(currentTime).dateStr}
                 </span>
               </div>
             </div>
 
-            {/* 2. Clock (HH:MM:SS) - glowing amber, super large and extremely readable */}
-            <div className="flex items-center gap-2 bg-[#121220] border border-amber-500/30 rounded-xl px-4 py-1 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-              <span className="text-xl sm:text-2xl animate-bounce">⏱️</span>
-              <div className="flex flex-col items-center leading-none">
-                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Hora Atual</span>
-                <span className="text-base sm:text-2xl md:text-3xl font-black text-amber-400 font-mono tracking-widest drop-shadow-[0_0_12px_rgba(245,158,11,0.9)] whitespace-nowrap">
+            {/* 2. Clock (HH:MM:SS) - glowing amber, large and readable from distance */}
+            <div className="flex items-center gap-2 bg-[#121220] border border-amber-500/30 rounded-xl px-3.5 py-1.5 shadow-[0_0_12px_rgba(245,158,11,0.18)] shrink-0">
+              <span className="text-lg sm:text-xl">⏱️</span>
+              <div className="flex flex-col justify-center leading-none">
+                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Hora Atual</span>
+                <span className="text-base sm:text-xl md:text-2xl font-black text-amber-400 font-mono tracking-wider drop-shadow-[0_0_10px_rgba(245,158,11,0.9)] whitespace-nowrap">
                   {currentTime.toLocaleTimeString('pt-BR')}
                 </span>
               </div>
             </div>
 
-            {/* 3. Weather - glowing sky blue/blue/amber, bold and informative */}
+            {/* 3. Weather Info - sky blue / amber */}
             {weather ? (
-              <div className="flex items-center gap-2.5 bg-[#121220] border border-sky-500/20 rounded-xl px-3.5 py-1.5 shadow-[0_0_10px_rgba(14,165,233,0.15)]">
-                <span className="text-xl sm:text-2xl select-none animate-pulse">
+              <div className="flex items-center gap-2 bg-[#121220] border border-sky-500/25 rounded-xl px-3 py-1.5 shadow-[0_0_10px_rgba(14,165,233,0.12)] shrink-0">
+                <span className="text-lg sm:text-xl select-none">
                   {weather.emoji}
                 </span>
-                <div className="flex flex-col items-start leading-tight">
-                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Clima em {weather.cityName}</span>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-sm sm:text-base md:text-lg font-black text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.7)] whitespace-nowrap">
+                <div className="flex flex-col justify-center leading-none">
+                  <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Clima ({weather.cityName})</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm sm:text-base font-black text-white whitespace-nowrap drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]">
                       {weather.temp.toFixed(1)}°C
                     </span>
-                    <span className="text-[10px] sm:text-xs font-bold text-zinc-400 whitespace-nowrap">
-                      (Min {weather.tempMin.toFixed(0)}°C / Máx {weather.tempMax.toFixed(0)}°C)
+                    <span className="text-[10px] font-bold text-zinc-400 whitespace-nowrap">
+                      ({weather.tempMin.toFixed(0)}° / {weather.tempMax.toFixed(0)}°)
                     </span>
-                    <span className="mx-1 text-zinc-600">|</span>
+                    <span className="text-zinc-600 font-bold">|</span>
                     {weather.rainProb > 0 ? (
                       <span className="text-xs font-black text-blue-400 drop-shadow-[0_0_6px_rgba(96,165,250,0.8)] whitespace-nowrap">
                         🌧️ Chuva: {weather.rainProb}%
                       </span>
                     ) : (
-                      <span className="text-xs font-black text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.6)] whitespace-nowrap">
+                      <span className="text-xs font-black text-amber-500 whitespace-nowrap">
                         ☀️ Sem Chuva
                       </span>
                     )}
@@ -1092,14 +1066,15 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2 bg-[#121220] border border-zinc-800 rounded-xl px-4 py-2 text-zinc-500 text-xs font-black uppercase tracking-wider animate-pulse">
+              <div className="flex items-center gap-2 bg-[#121220] border border-zinc-800 rounded-xl px-3 py-1.5 text-zinc-500 text-xs font-black uppercase tracking-wider animate-pulse shrink-0">
                 <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                <span>Buscando Clima...</span>
+                <span>Clima...</span>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Right Section: All Control Buttons Always Visible */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* GPS Status Indicator */}
             <div
               className={`flex items-center justify-center p-1.5 rounded-xl border ${
