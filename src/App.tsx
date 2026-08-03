@@ -22,7 +22,9 @@ import {
   Minus,
   AlertTriangle,
   Sun,
-  Activity
+  Activity,
+  MapPin,
+  Navigation
 } from 'lucide-react';
 import { SpeedCanvas } from './components/SpeedCanvas';
 import { FuelGaugeCanvas } from './components/FuelGaugeCanvas';
@@ -76,10 +78,10 @@ export default function App() {
       if (cfg.totalOdometerKm < 149545.8) {
         cfg.totalOdometerKm = 149545.8;
       }
-      // Force update to 12.5% once based on latest refueling Clio photo (2nd tick above bottom)
-      if (localStorage.getItem('fuel_override_12_5_done_v2') !== 'true') {
-        cfg.fuelLevel = 12.5;
-        localStorage.setItem('fuel_override_12_5_done_v2', 'true');
+      // Force update to 25.0% (2º tracinho abaixo da metade de meio tanque = 1/4 tanque = 12.5L)
+      if (localStorage.getItem('fuel_override_25_0_done_v4') !== 'true') {
+        cfg.fuelLevel = 25.0;
+        localStorage.setItem('fuel_override_25_0_done_v4', 'true');
       }
       return cfg;
     }
@@ -88,7 +90,7 @@ export default function App() {
       details: '2010 1.0 16V Hi-Flex',
       tankCapacity: 50,
       currentFuel: 'gasoline',
-      fuelLevel: 12.5, // ~6.25 Litros (Atualizado via nova foto do painel após uso, no 2º tracinho)
+      fuelLevel: 25.0, // ~12.5 Litros (2º tracinho abaixo da metade de meio tanque = 1/4 tanque)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
       totalOdometerKm: 149545.8,
@@ -110,6 +112,10 @@ export default function App() {
   const [speedLimit, setSpeedLimit] = useState<number>(80);
   const [showPhotoScanner, setShowPhotoScanner] = useState<boolean>(false);
   const [showQuickRefuelModal, setShowQuickRefuelModal] = useState<boolean>(false);
+  const [showCitySearchModal, setShowCitySearchModal] = useState<boolean>(false);
+  const [citySearchInput, setCitySearchInput] = useState<string>('');
+  const [citySearchLoading, setCitySearchLoading] = useState<boolean>(false);
+  const [citySearchError, setCitySearchError] = useState<string | null>(null);
   const [gpsDenied, setGpsDenied] = useState<boolean>(false);
   const [hudMode, setHudMode] = useState<boolean>(false);
   
@@ -142,13 +148,43 @@ export default function App() {
         }
       });
       const data = await res.json();
-      return data.address.city || data.address.town || data.address.suburb || data.address.village || 'Sua Rota';
+      const addr = data.address || {};
+      return addr.city || addr.town || addr.suburb || addr.municipality || addr.village || addr.county || 'Sua Rota';
     } catch (e) {
       return 'Sua Rota';
     }
   };
 
-  const fetchWeatherInfo = async (lat: number, lon: number) => {
+  // IP Geolocation fallback if browser GPS is blocked/unavailable
+  const fetchIpLocation = async (): Promise<{ lat: number; lon: number } | null> => {
+    try {
+      const res = await fetch('https://get.geojs.io/v1/ip/geo.json');
+      if (res.ok) {
+        const data = await res.json();
+        const lat = parseFloat(data.latitude);
+        const lon = parseFloat(data.longitude);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          return { lat, lon };
+        }
+      }
+    } catch (e) {
+      console.warn('GeoJS IP fetch failed:', e);
+    }
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.latitude && data.longitude) {
+          return { lat: data.latitude, lon: data.longitude };
+        }
+      }
+    } catch (e) {
+      console.warn('IPAPI fetch failed:', e);
+    }
+    return null;
+  };
+
+  const fetchWeatherInfo = async (lat: number, lon: number, customCityName?: string) => {
     setWeatherLoading(true);
     try {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`;
@@ -162,7 +198,6 @@ export default function App() {
       const tempMin = data.daily.temperature_2m_min[0];
       const rainProb = data.daily.precipitation_probability_max[0];
       
-      // Map WMO codes
       let description = 'Céu Limpo';
       let emoji = '☀️';
       
@@ -186,7 +221,7 @@ export default function App() {
         emoji = '⛈️';
       }
       
-      const city = await fetchCityName(lat, lon);
+      const city = customCityName || await fetchCityName(lat, lon);
       
       setWeather({
         temp,
@@ -206,6 +241,84 @@ export default function App() {
     }
   };
 
+  // Search location manually by city name
+  const handleSearchCity = async (cityQuery: string) => {
+    if (!cityQuery.trim()) return;
+    setCitySearchLoading(true);
+    setCitySearchError(null);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(cityQuery)}`, {
+        headers: {
+          'Accept-Language': 'pt-BR',
+          'User-Agent': 'ClioDashboard/1.0'
+        }
+      });
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        const rawName = data[0].display_name.split(',')[0];
+        const formattedCity = rawName || cityQuery;
+
+        setCoords({ latitude: lat, longitude: lon });
+        lastFetchedCoordsRef.current = { latitude: lat, longitude: lon };
+        localStorage.setItem('user_saved_city_v1', JSON.stringify({ lat, lon, name: formattedCity }));
+        await fetchWeatherInfo(lat, lon, formattedCity);
+        setShowCitySearchModal(false);
+        setCitySearchInput('');
+      } else {
+        setCitySearchError('Cidade não encontrada. Tente incluir o estado (ex: "Campinas, SP")');
+      }
+    } catch (e) {
+      setCitySearchError('Erro ao buscar a cidade. Verifique a conexão.');
+    } finally {
+      setCitySearchLoading(false);
+    }
+  };
+
+  // Detect location via GPS/IP
+  const handleAutoDetectLocation = async () => {
+    setCitySearchLoading(true);
+    setCitySearchError(null);
+    localStorage.removeItem('user_saved_city_v1');
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          setCoords({ latitude: lat, longitude: lon });
+          lastFetchedCoordsRef.current = { latitude: lat, longitude: lon };
+          fetchWeatherInfo(lat, lon);
+          setShowCitySearchModal(false);
+          setCitySearchLoading(false);
+        },
+        async () => {
+          const ipLoc = await fetchIpLocation();
+          if (ipLoc) {
+            setCoords({ latitude: ipLoc.lat, longitude: ipLoc.lon });
+            lastFetchedCoordsRef.current = { latitude: ipLoc.lat, longitude: ipLoc.lon };
+            fetchWeatherInfo(ipLoc.lat, ipLoc.lon);
+            setShowCitySearchModal(false);
+          } else {
+            setCitySearchError('Não foi possível obter GPS. Digite o nome da sua cidade manualmente.');
+          }
+          setCitySearchLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    } else {
+      const ipLoc = await fetchIpLocation();
+      if (ipLoc) {
+        setCoords({ latitude: ipLoc.lat, longitude: ipLoc.lon });
+        lastFetchedCoordsRef.current = { latitude: ipLoc.lat, longitude: ipLoc.lon };
+        fetchWeatherInfo(ipLoc.lat, ipLoc.lon);
+        setShowCitySearchModal(false);
+      }
+      setCitySearchLoading(false);
+    }
+  };
+
   // Clock ticks
   useEffect(() => {
     const timer = setInterval(() => {
@@ -214,10 +327,20 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Initial GPS grab & fallback weather loading
+  // Initial GPS grab, saved city restore, & IP fallback
   useEffect(() => {
-    const defaultLat = -23.55052;
-    const defaultLon = -46.633308;
+    const savedCity = localStorage.getItem('user_saved_city_v1');
+    if (savedCity) {
+      try {
+        const parsed = JSON.parse(savedCity);
+        if (parsed.lat && parsed.lon) {
+          setCoords({ latitude: parsed.lat, longitude: parsed.lon });
+          lastFetchedCoordsRef.current = { latitude: parsed.lat, longitude: parsed.lon };
+          fetchWeatherInfo(parsed.lat, parsed.lon, parsed.name);
+          return;
+        }
+      } catch (e) {}
+    }
 
     const triggerInitialFetch = () => {
       if (navigator.geolocation) {
@@ -229,18 +352,32 @@ export default function App() {
             lastFetchedCoordsRef.current = { latitude: lat, longitude: lon };
             fetchWeatherInfo(lat, lon);
           },
-          (err) => {
-            console.warn('GPS inicial para clima não concedido, usando padrão:', err.message);
-            setCoords({ latitude: defaultLat, longitude: defaultLon });
-            lastFetchedCoordsRef.current = { latitude: defaultLat, longitude: defaultLon };
-            fetchWeatherInfo(defaultLat, defaultLon);
+          async (err) => {
+            console.warn('GPS browser não concedido, tentando localização por IP:', err.message);
+            const ipLoc = await fetchIpLocation();
+            if (ipLoc) {
+              setCoords({ latitude: ipLoc.lat, longitude: ipLoc.lon });
+              lastFetchedCoordsRef.current = { latitude: ipLoc.lat, longitude: ipLoc.lon };
+              fetchWeatherInfo(ipLoc.lat, ipLoc.lon);
+            } else {
+              // Standard default
+              const defaultLat = -23.55052;
+              const defaultLon = -46.633308;
+              setCoords({ latitude: defaultLat, longitude: defaultLon });
+              lastFetchedCoordsRef.current = { latitude: defaultLat, longitude: defaultLon };
+              fetchWeatherInfo(defaultLat, defaultLon);
+            }
           },
-          { enableHighAccuracy: false, timeout: 5000 }
+          { enableHighAccuracy: true, timeout: 7000 }
         );
       } else {
-        setCoords({ latitude: defaultLat, longitude: defaultLon });
-        lastFetchedCoordsRef.current = { latitude: defaultLat, longitude: defaultLon };
-        fetchWeatherInfo(defaultLat, defaultLon);
+        fetchIpLocation().then((ipLoc) => {
+          if (ipLoc) {
+            setCoords({ latitude: ipLoc.lat, longitude: ipLoc.lon });
+            lastFetchedCoordsRef.current = { latitude: ipLoc.lat, longitude: ipLoc.lon };
+            fetchWeatherInfo(ipLoc.lat, ipLoc.lon);
+          }
+        });
       }
     };
 
@@ -248,8 +385,10 @@ export default function App() {
 
     // 30 minute interval
     const weatherInterval = setInterval(() => {
-      const current = lastFetchedCoordsRef.current || { latitude: defaultLat, longitude: defaultLon };
-      fetchWeatherInfo(current.latitude, current.longitude);
+      const current = lastFetchedCoordsRef.current;
+      if (current) {
+        fetchWeatherInfo(current.latitude, current.longitude);
+      }
     }, 30 * 60 * 1000);
 
     return () => clearInterval(weatherInterval);
@@ -1037,14 +1176,21 @@ export default function App() {
               </div>
             </div>
 
-            {/* 3. Weather Info - sky blue / amber */}
+            {/* 3. Weather Info - sky blue / amber with click to change location */}
             {weather ? (
-              <div className="flex items-center gap-2 bg-[#121220] border border-sky-500/25 rounded-xl px-3 py-1.5 shadow-[0_0_10px_rgba(14,165,233,0.12)] shrink-0">
-                <span className="text-lg sm:text-xl select-none">
+              <div 
+                onClick={() => setShowCitySearchModal(true)}
+                className="flex items-center gap-2 bg-[#121220] hover:bg-[#18182b] border border-sky-500/30 hover:border-sky-400/60 rounded-xl px-3 py-1.5 shadow-[0_0_10px_rgba(14,165,233,0.12)] shrink-0 cursor-pointer transition-all active:scale-95 group"
+                title="Clique para alterar a cidade ou re-detectar seu GPS"
+              >
+                <span className="text-lg sm:text-xl select-none group-hover:scale-110 transition-transform">
                   {weather.emoji}
                 </span>
                 <div className="flex flex-col justify-center leading-none">
-                  <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Clima ({weather.cityName})</span>
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Clima ({weather.cityName})</span>
+                    <MapPin size={10} className="text-sky-400 group-hover:animate-bounce" />
+                  </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm sm:text-base font-black text-white whitespace-nowrap drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]">
                       {weather.temp.toFixed(1)}°C
@@ -1066,9 +1212,12 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2 bg-[#121220] border border-zinc-800 rounded-xl px-3 py-1.5 text-zinc-500 text-xs font-black uppercase tracking-wider animate-pulse shrink-0">
+              <div 
+                onClick={() => setShowCitySearchModal(true)}
+                className="flex items-center gap-2 bg-[#121220] border border-zinc-800 rounded-xl px-3 py-1.5 text-zinc-500 text-xs font-black uppercase tracking-wider animate-pulse shrink-0 cursor-pointer"
+              >
                 <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                <span>Clima...</span>
+                <span>Buscando Clima...</span>
               </div>
             )}
           </div>
@@ -1421,6 +1570,94 @@ export default function App() {
           onRefuel={handleQuickRefuel}
           onClose={() => setShowQuickRefuelModal(false)}
         />
+      )}
+
+      {/* City & Weather Search Modal */}
+      {showCitySearchModal && (
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-[#0e0e14] border border-[#2a2a3e] rounded-3xl p-5 sm:p-7 w-full max-w-md shadow-2xl relative overflow-hidden">
+            <button
+              onClick={() => setShowCitySearchModal(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-2 bg-[#181824] rounded-full transition-colors"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 border border-sky-500/40 rounded-2xl flex items-center justify-center text-sky-400 bg-sky-500/10 shrink-0">
+                <MapPin size={22} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white tracking-tight">
+                  Localização do Clima
+                </h3>
+                <p className="text-xs text-zinc-400 font-bold">
+                  Defina a cidade para previsão e temperatura exata
+                </p>
+              </div>
+            </div>
+
+            {citySearchError && (
+              <div className="bg-red-500/15 border border-red-500/30 text-red-300 text-xs font-bold rounded-xl p-3 mb-4">
+                {citySearchError}
+              </div>
+            )}
+
+            {/* Auto GPS / IP Button */}
+            <button
+              onClick={handleAutoDetectLocation}
+              disabled={citySearchLoading}
+              className="w-full bg-[#161626] hover:bg-[#202036] border border-sky-500/40 text-sky-300 hover:text-white font-black py-3 px-4 text-xs uppercase tracking-wider rounded-xl mb-4 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+            >
+              <Navigation size={16} className="text-sky-400 animate-spin" />
+              {citySearchLoading ? 'Detectando Local...' : '⚡ Auto Detectar Meu Local (GPS / IP)'}
+            </button>
+
+            <div className="relative mb-4">
+              <div className="text-[10px] uppercase font-black tracking-widest text-zinc-500 mb-1">
+                Ou Digite o Nome da Sua Cidade:
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={citySearchInput}
+                  onChange={(e) => setCitySearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSearchCity(citySearchInput);
+                  }}
+                  placeholder="Ex: Rio de Janeiro, Belo Horizonte..."
+                  className="flex-1 bg-[#141420] border border-[#2e2e44] focus:border-sky-500 text-white font-bold text-sm px-3.5 py-2.5 rounded-xl outline-none transition-colors"
+                />
+                <button
+                  onClick={() => handleSearchCity(citySearchInput)}
+                  disabled={citySearchLoading || !citySearchInput.trim()}
+                  className="bg-sky-500 hover:bg-sky-400 disabled:opacity-40 text-black font-black px-4 py-2.5 text-xs uppercase rounded-xl transition-transform active:scale-95 shrink-0"
+                >
+                  Buscar
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Cities */}
+            <div>
+              <div className="text-[10px] uppercase font-black tracking-widest text-zinc-500 mb-2">
+                Cidades Rápidas:
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {['São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Curitiba', 'Salvador', 'Brasília', 'Fortaleza', 'Porto Alegre'].map((cityName) => (
+                  <button
+                    key={cityName}
+                    onClick={() => handleSearchCity(cityName)}
+                    disabled={citySearchLoading}
+                    className="bg-[#181828] hover:bg-sky-500/20 border border-[#2d2d42] hover:border-sky-500/40 text-zinc-300 hover:text-sky-300 font-bold text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                  >
+                    {cityName}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
