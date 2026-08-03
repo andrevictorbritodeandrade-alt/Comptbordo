@@ -1038,62 +1038,63 @@ export default function App() {
             </div>
           </div>
 
-          {/* Dynamic Clock, Date & GPS Weather Info - Highly Polished Car HUD Center Console */}
-          <div className="flex flex-col items-center justify-center bg-[#0d0d16] border border-[#222234] rounded-2xl px-2.5 sm:px-4 py-1 shadow-[inset_0_0_8px_rgba(0,0,0,0.8)] select-none relative overflow-hidden min-w-[120px] sm:min-w-[220px] md:min-w-[280px]">
-            {/* Clock with seconds - glowing amber */}
-            <div className="flex items-center gap-1">
-              <span className="text-xs sm:text-base md:text-lg font-black text-amber-400 font-mono tracking-widest drop-shadow-[0_0_8px_rgba(245,158,11,0.8)]">
-                {currentTime.toLocaleTimeString('pt-BR')}
-              </span>
+          {/* Dynamic Distributed Clock, Date & GPS Weather Info - Highly Polished Car HUD Center Console */}
+          <div className="flex-1 flex flex-col md:flex-row items-center justify-around gap-3 px-2 sm:px-4 py-1.5 bg-[#0b0b13] border border-[#222234] rounded-2xl shadow-[inset_0_0_12px_rgba(0,0,0,0.8)] select-none">
+            
+            {/* 1. Day of Week + Date - glowing emerald, bold and large */}
+            <div className="flex items-center gap-2 bg-[#121220] border border-emerald-500/20 rounded-xl px-3.5 py-1.5 shadow-[0_0_10px_rgba(16,185,129,0.15)] transition-all">
+              <span className="text-xl sm:text-2xl animate-pulse">📅</span>
+              <div className="flex flex-col items-start leading-tight">
+                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Data</span>
+                <span className="text-sm sm:text-base md:text-lg font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)] whitespace-nowrap">
+                  {getFormattedDate(currentTime).dayOfWeek}, {getFormattedDate(currentTime).dateStr}
+                </span>
+              </div>
             </div>
 
-            {/* Day & Date - glowing emerald */}
-            <div className="text-[7px] sm:text-[9px] md:text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 mt-0.5">
-              <span>{getFormattedDate(currentTime).dayOfWeek}</span>
-              <span className="w-1 h-1 rounded-full bg-zinc-600" />
-              <span className="text-emerald-400 font-black drop-shadow-[0_0_5px_rgba(52,211,153,0.7)]">
-                {getFormattedDate(currentTime).dateStr}
-              </span>
+            {/* 2. Clock (HH:MM:SS) - glowing amber, super large and extremely readable */}
+            <div className="flex items-center gap-2 bg-[#121220] border border-amber-500/30 rounded-xl px-4 py-1 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+              <span className="text-xl sm:text-2xl animate-bounce">⏱️</span>
+              <div className="flex flex-col items-center leading-none">
+                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Hora Atual</span>
+                <span className="text-base sm:text-2xl md:text-3xl font-black text-amber-400 font-mono tracking-widest drop-shadow-[0_0_12px_rgba(245,158,11,0.9)] whitespace-nowrap">
+                  {currentTime.toLocaleTimeString('pt-BR')}
+                </span>
+              </div>
             </div>
 
-            {/* Weather Info */}
+            {/* 3. Weather - glowing sky blue/blue/amber, bold and informative */}
             {weather ? (
-              <div className="flex items-center gap-1 md:gap-1.5 mt-0.5 md:mt-1 px-1 sm:px-2.5 py-0.5 bg-[#141424] rounded-xl border border-[#2c2c42] shadow-sm text-[7px] sm:text-[10px] md:text-[11px] font-extrabold text-zinc-200">
-                <span className="text-[10px] sm:text-xs select-none">
+              <div className="flex items-center gap-2.5 bg-[#121220] border border-sky-500/20 rounded-xl px-3.5 py-1.5 shadow-[0_0_10px_rgba(14,165,233,0.15)]">
+                <span className="text-xl sm:text-2xl select-none animate-pulse">
                   {weather.emoji}
                 </span>
-                <div className="flex items-center gap-0.5">
-                  <span className="text-white font-black drop-shadow-[0_0_4px_rgba(255,255,255,0.6)]">
-                    {weather.temp.toFixed(1)}°C
-                  </span>
-                  <span className="text-zinc-500 font-bold text-[7px] sm:text-[9px]">
-                    ({weather.tempMin.toFixed(0)}°/{weather.tempMax.toFixed(0)}°)
-                  </span>
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Clima em {weather.cityName}</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-sm sm:text-base md:text-lg font-black text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.7)] whitespace-nowrap">
+                      {weather.temp.toFixed(1)}°C
+                    </span>
+                    <span className="text-[10px] sm:text-xs font-bold text-zinc-400 whitespace-nowrap">
+                      (Min {weather.tempMin.toFixed(0)}°C / Máx {weather.tempMax.toFixed(0)}°C)
+                    </span>
+                    <span className="mx-1 text-zinc-600">|</span>
+                    {weather.rainProb > 0 ? (
+                      <span className="text-xs font-black text-blue-400 drop-shadow-[0_0_6px_rgba(96,165,250,0.8)] whitespace-nowrap">
+                        🌧️ Chuva: {weather.rainProb}%
+                      </span>
+                    ) : (
+                      <span className="text-xs font-black text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.6)] whitespace-nowrap">
+                        ☀️ Sem Chuva
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="w-0.5 h-0.5 sm:w-1 sm:h-1 rounded-full bg-zinc-600" />
-                <span className="text-[#c19a6b] font-black uppercase text-[6px] sm:text-[9px] tracking-wide max-w-[40px] sm:max-w-none truncate">
-                  {weather.cityName}
-                </span>
-                {weather.rainProb > 0 ? (
-                  <>
-                    <span className="w-0.5 h-0.5 sm:w-1 sm:h-1 rounded-full bg-zinc-600" />
-                    <span className="text-blue-400 font-black flex items-center gap-0.5 text-[6px] sm:text-[9px] drop-shadow-[0_0_4px_rgba(96,165,250,0.5)]">
-                      🌧️ {weather.rainProb}%
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="w-0.5 h-0.5 sm:w-1 sm:h-1 rounded-full bg-zinc-600" />
-                    <span className="text-amber-500 font-black flex items-center gap-0.5 text-[6px] sm:text-[9px]">
-                      ☀️ Sem Chuva
-                    </span>
-                  </>
-                )}
               </div>
             ) : (
-              <div className="text-[6px] sm:text-[9px] text-zinc-500 mt-0.5 md:mt-1 animate-pulse flex items-center gap-1 font-bold uppercase tracking-wider">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                Sincronizando clima...
+              <div className="flex items-center gap-2 bg-[#121220] border border-zinc-800 rounded-xl px-4 py-2 text-zinc-500 text-xs font-black uppercase tracking-wider animate-pulse">
+                <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                <span>Buscando Clima...</span>
               </div>
             )}
           </div>
