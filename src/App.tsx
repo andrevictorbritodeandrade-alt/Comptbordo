@@ -70,15 +70,12 @@ export default function App() {
   const [carConfig, setCarConfig] = useState<CarConfig>(() => {
     if (savedState?.carConfig) {
       const cfg = savedState.carConfig;
-      // One-time 800 meters (0.8 km) offset correction to align with the car's odometer
-      if (localStorage.getItem('odometer_offset_800m_applied') !== 'true') {
-        cfg.totalOdometerKm = (cfg.totalOdometerKm ?? 149545) + 0.8;
-        localStorage.setItem('odometer_offset_800m_applied', 'true');
+      // Force update total odometer to 149945.0 km to match car dashboard
+      if (localStorage.getItem('odometer_sync_149945_v2') !== 'true') {
+        cfg.totalOdometerKm = 149945.0;
+        localStorage.setItem('odometer_sync_149945_v2', 'true');
       }
-      if (cfg.totalOdometerKm < 149545.8) {
-        cfg.totalOdometerKm = 149545.8;
-      }
-      // Force update to 25.0% (2º tracinho abaixo da metade de meio tanque = 1/4 tanque = 12.5L)
+      // Force update to 25.0% fuel level
       if (localStorage.getItem('fuel_override_25_0_done_v4') !== 'true') {
         cfg.fuelLevel = 25.0;
         localStorage.setItem('fuel_override_25_0_done_v4', 'true');
@@ -93,7 +90,7 @@ export default function App() {
       fuelLevel: 25.0, // ~12.5 Litros (2º tracinho abaixo da metade de meio tanque = 1/4 tanque)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
-      totalOdometerKm: 149545.8,
+      totalOdometerKm: 149945.0,
     };
   });
 
@@ -446,20 +443,24 @@ export default function App() {
           if (cloudTime >= localTime) {
             if (data.carConfig) {
               const cfg = data.carConfig;
-              // One-time 800 meters (0.8 km) offset correction to align with the car's odometer
-              if (localStorage.getItem('odometer_offset_800m_applied') !== 'true') {
-                cfg.totalOdometerKm = (cfg.totalOdometerKm ?? 149545) + 0.8;
-                localStorage.setItem('odometer_offset_800m_applied', 'true');
-              }
-              if (cfg.totalOdometerKm < 149545.8) cfg.totalOdometerKm = 149545.8;
-              if (localStorage.getItem('fuel_override_12_5_done_v2') !== 'true') {
-                cfg.fuelLevel = 12.5;
-                localStorage.setItem('fuel_override_12_5_done_v2', 'true');
+              if (localStorage.getItem('odometer_sync_149945_v2') !== 'true') {
+                cfg.totalOdometerKm = 149945.0;
+                localStorage.setItem('odometer_sync_149945_v2', 'true');
               }
               setCarConfig(cfg);
             }
             if (data.activeTripKey) setActiveTripKey(data.activeTripKey);
-            if (data.trips) setTrips(data.trips);
+            if (data.trips) {
+              const trs = data.trips;
+              if (localStorage.getItem('trip_sync_177_v2') !== 'true') {
+                if (trs.a) {
+                  trs.a.distance = 177000;
+                  trs.a.active = true;
+                }
+                localStorage.setItem('trip_sync_177_v2', 'true');
+              }
+              setTrips(trs);
+            }
             if (data.mode && data.mode !== 'pending') setMode(data.mode);
           } else {
             console.log("Local state is newer than cloud state. Skipping cloud override.");
@@ -489,12 +490,22 @@ export default function App() {
     return 'a';
   });
   const [trips, setTrips] = useState<TripsState>(() => {
-    if (savedState?.trips) return savedState.trips;
+    if (savedState?.trips) {
+      const trs = savedState.trips;
+      if (localStorage.getItem('trip_sync_177_v2') !== 'true') {
+        if (trs.a) {
+          trs.a.distance = 177000;
+          trs.a.active = true;
+        }
+        localStorage.setItem('trip_sync_177_v2', 'true');
+      }
+      return trs;
+    }
     return {
       a: {
-        active: false,
+        active: true,
         paused: false,
-        distance: 0,
+        distance: 177000, // 177.0 km
         elapsedTime: 0,
         totalFuelConsumed: 0,
         speedSamples: [],
@@ -745,7 +756,7 @@ export default function App() {
           let distanceKm = 0;
           let timeDiff = 0;
 
-          if (position.coords.speed !== null && position.coords.speed !== undefined) {
+          if (position.coords.speed !== null && position.coords.speed !== undefined && position.coords.speed >= 0) {
             currentSpeedKmh = position.coords.speed * 3.6;
           } else if (lastPosRef.current) {
             const dist = calculateDistance(
@@ -760,10 +771,10 @@ export default function App() {
             }
           }
 
-          // Anti-drift filter for static position
-          if (currentSpeedKmh < 2.0) currentSpeedKmh = 0;
+          // Anti-drift filter: ignore static jitter (< 1.0 km/h)
+          if (currentSpeedKmh < 1.0) currentSpeedKmh = 0;
 
-          // Calculate distance and elapsed time from previous GPS tick
+          // Calculate distance and elapsed time from previous GPS anchor position
           if (lastPosRef.current) {
             const distMeters = calculateDistance(
               lastPosRef.current.coords.latitude,
@@ -771,14 +782,23 @@ export default function App() {
               position.coords.latitude,
               position.coords.longitude
             );
-            // Ignore minor jitter when stopped (under 15 meters) unless speed indicates we are definitely driving
-            if (distMeters > 15 || currentSpeedKmh >= 2.0) {
+            const accuracy = position.coords.accuracy || 10;
+            timeDiff = (now - lastPosRef.current.timestamp) / 1000;
+
+            // Accumulate movement if distMeters >= 2.0m AND (speed > 1.0 km/h OR distMeters > 3.0m)
+            // And cap max single jump to 500m to ignore GPS telemetry spikes.
+            if (distMeters >= 2.0 && distMeters < 500 && (currentSpeedKmh >= 1.0 || distMeters >= 3.0 || distMeters > accuracy * 0.4)) {
               distanceKm = distMeters / 1000;
-              timeDiff = (now - lastPosRef.current.timestamp) / 1000;
+              // Update reference position only when distance is accumulated
+              lastPosRef.current = { coords: position.coords, timestamp: now };
+            } else if (distMeters >= 500) {
+              // Re-anchor reference on huge teleport spikes without accumulating false mileage
+              lastPosRef.current = { coords: position.coords, timestamp: now };
             }
+          } else {
+            lastPosRef.current = { coords: position.coords, timestamp: now };
           }
 
-          lastPosRef.current = { coords: position.coords, timestamp: now };
           setSpeed(currentSpeedKmh);
           setCoords({
             latitude: position.coords.latitude,
@@ -799,7 +819,7 @@ export default function App() {
             setCarConfig((prev) => ({
               ...prev,
               fuelLevel: Math.max(0, prev.fuelLevel - percentageConsumed),
-              totalOdometerKm: (prev.totalOdometerKm ?? 149545.8) + distanceKm,
+              totalOdometerKm: (prev.totalOdometerKm ?? 149945.0) + distanceKm,
             }));
 
             // Update Active Trip
