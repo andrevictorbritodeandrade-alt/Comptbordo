@@ -70,15 +70,15 @@ export default function App() {
   const [carConfig, setCarConfig] = useState<CarConfig>(() => {
     if (savedState?.carConfig) {
       const cfg = savedState.carConfig;
-      // Force update total odometer to 149945.0 km to match car dashboard
-      if (localStorage.getItem('odometer_sync_149945_v2') !== 'true') {
-        cfg.totalOdometerKm = 149945.0;
-        localStorage.setItem('odometer_sync_149945_v2', 'true');
+      // Force update total odometer to 150016.0 km to match car dashboard photo
+      if (localStorage.getItem('odometer_sync_150016_v2') !== 'true') {
+        cfg.totalOdometerKm = 150016.0;
+        localStorage.setItem('odometer_sync_150016_v2', 'true');
       }
-      // Force update to 25.0% fuel level
-      if (localStorage.getItem('fuel_override_25_0_done_v4') !== 'true') {
-        cfg.fuelLevel = 25.0;
-        localStorage.setItem('fuel_override_25_0_done_v4', 'true');
+      // Force update fuel level to 55.0% (above half, matching latest dashboard photo)
+      if (localStorage.getItem('fuel_override_55_0_v2') !== 'true') {
+        cfg.fuelLevel = 55.0;
+        localStorage.setItem('fuel_override_55_0_v2', 'true');
       }
       return cfg;
     }
@@ -87,10 +87,10 @@ export default function App() {
       details: '2010 1.0 16V Hi-Flex',
       tankCapacity: 50,
       currentFuel: 'gasoline',
-      fuelLevel: 25.0, // ~12.5 Litros (2º tracinho abaixo da metade de meio tanque = 1/4 tanque)
+      fuelLevel: 55.0, // ~27.5 Litros (acima da metade, conforme foto atual)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
-      totalOdometerKm: 149945.0,
+      totalOdometerKm: 150016.0,
     };
   });
 
@@ -443,21 +443,21 @@ export default function App() {
           if (cloudTime >= localTime) {
             if (data.carConfig) {
               const cfg = data.carConfig;
-              if (localStorage.getItem('odometer_sync_149945_v2') !== 'true') {
-                cfg.totalOdometerKm = 149945.0;
-                localStorage.setItem('odometer_sync_149945_v2', 'true');
+              if (localStorage.getItem('odometer_sync_150016_v2') !== 'true') {
+                cfg.totalOdometerKm = 150016.0;
+                localStorage.setItem('odometer_sync_150016_v2', 'true');
               }
               setCarConfig(cfg);
             }
             if (data.activeTripKey) setActiveTripKey(data.activeTripKey);
             if (data.trips) {
               const trs = data.trips;
-              if (localStorage.getItem('trip_sync_177_v2') !== 'true') {
+              if (localStorage.getItem('trip_sync_4_6_v2') !== 'true') {
                 if (trs.a) {
-                  trs.a.distance = 177000;
+                  trs.a.distance = 4600;
                   trs.a.active = true;
                 }
-                localStorage.setItem('trip_sync_177_v2', 'true');
+                localStorage.setItem('trip_sync_4_6_v2', 'true');
               }
               setTrips(trs);
             }
@@ -492,12 +492,12 @@ export default function App() {
   const [trips, setTrips] = useState<TripsState>(() => {
     if (savedState?.trips) {
       const trs = savedState.trips;
-      if (localStorage.getItem('trip_sync_177_v2') !== 'true') {
+      if (localStorage.getItem('trip_sync_4_6_v2') !== 'true') {
         if (trs.a) {
-          trs.a.distance = 177000;
+          trs.a.distance = 4600; // 4.6 km
           trs.a.active = true;
         }
-        localStorage.setItem('trip_sync_177_v2', 'true');
+        localStorage.setItem('trip_sync_4_6_v2', 'true');
       }
       return trs;
     }
@@ -505,7 +505,7 @@ export default function App() {
       a: {
         active: true,
         paused: false,
-        distance: 177000, // 177.0 km
+        distance: 4600, // 4.6 km
         elapsedTime: 0,
         totalFuelConsumed: 0,
         speedSamples: [],
