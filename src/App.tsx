@@ -70,10 +70,10 @@ export default function App() {
   const [carConfig, setCarConfig] = useState<CarConfig>(() => {
     if (savedState?.carConfig) {
       const cfg = savedState.carConfig;
-      // Force update total odometer to 150016.0 km to match car dashboard photo
-      if (localStorage.getItem('odometer_sync_150016_v3') !== 'true' || !cfg.totalOdometerKm || cfg.totalOdometerKm < 150000) {
-        cfg.totalOdometerKm = 150016.0;
-        localStorage.setItem('odometer_sync_150016_v3', 'true');
+      // Force update total odometer to 150042.0 km to match car dashboard photo
+      if (localStorage.getItem('odometer_sync_150042_v1') !== 'true' || !cfg.totalOdometerKm || cfg.totalOdometerKm < 150000) {
+        cfg.totalOdometerKm = 150042.0;
+        localStorage.setItem('odometer_sync_150042_v1', 'true');
       }
       // Force update fuel level to 37.5% (1º tracinho abaixo da metade/meio tanque = 18.75 Litros)
       if (localStorage.getItem('fuel_override_37_5_v10') !== 'true' || cfg.fuelLevel < 5.0) {
@@ -90,7 +90,7 @@ export default function App() {
       fuelLevel: 37.5, // ~18.75 Litros (1º tracinho abaixo da metade)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
-      totalOdometerKm: 150016.0,
+      totalOdometerKm: 150042.0,
     };
   });
 
@@ -443,9 +443,9 @@ export default function App() {
           if (cloudTime >= localTime) {
             if (data.carConfig) {
               const cfg = data.carConfig;
-              if (localStorage.getItem('odometer_sync_150016_v3') !== 'true' || !cfg.totalOdometerKm || cfg.totalOdometerKm < 150000) {
-                cfg.totalOdometerKm = 150016.0;
-                localStorage.setItem('odometer_sync_150016_v3', 'true');
+              if (localStorage.getItem('odometer_sync_150042_v1') !== 'true' || !cfg.totalOdometerKm || cfg.totalOdometerKm < 150000) {
+                cfg.totalOdometerKm = 150042.0;
+                localStorage.setItem('odometer_sync_150042_v1', 'true');
               }
               if (localStorage.getItem('fuel_override_37_5_v10') !== 'true' || cfg.fuelLevel < 5.0) {
                 cfg.fuelLevel = 37.5;
@@ -823,7 +823,7 @@ export default function App() {
             setCarConfig((prev) => ({
               ...prev,
               fuelLevel: Math.max(0, prev.fuelLevel - percentageConsumed),
-              totalOdometerKm: (prev.totalOdometerKm ?? 150016.0) + distanceKm,
+              totalOdometerKm: (prev.totalOdometerKm ?? 150042.0) + distanceKm,
             }));
 
             // Update Active Trip
@@ -982,7 +982,7 @@ export default function App() {
           setCarConfig((prev) => ({
             ...prev,
             fuelLevel: Math.max(0, prev.fuelLevel - percentageConsumed),
-            totalOdometerKm: (prev.totalOdometerKm ?? 150016.0) + distanceKm,
+            totalOdometerKm: (prev.totalOdometerKm ?? 150042.0) + distanceKm,
           }));
         }
 
@@ -1352,7 +1352,7 @@ export default function App() {
             {/* Renault Clio Digital Odometer */}
             <div className="shrink-0">
               <OdometerDisplay
-                totalKm={carConfig.totalOdometerKm ?? 150016.0}
+                totalKm={carConfig.totalOdometerKm ?? 150042.0}
                 onOdometerChange={handleOdometerChange}
               />
             </div>

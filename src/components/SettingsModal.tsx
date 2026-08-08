@@ -190,7 +190,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <input
                 type="number"
                 step="0.1"
-                value={carConfig.totalOdometerKm ?? 150016}
+                value={carConfig.totalOdometerKm ?? 150042}
                 onChange={(e) => setCarConfig((p) => ({ ...p, totalOdometerKm: Math.max(0, Number(e.target.value)) }))}
                 className="w-full p-2 bg-[#141418] border border-amber-500/40 rounded-xl text-amber-300 font-bold font-mono"
               />
