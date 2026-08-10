@@ -28,13 +28,13 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
     ctx.clearRect(0, 0, width, height);
     
     ctx.save();
-    // Scale drawing to match new higher resolution canvas (assuming original was 200x200)
-    ctx.scale(width / 200, height / 200);
+    // Scale drawing to match new higher resolution canvas
+    ctx.scale(width / 200, height / 145);
 
     // Center of the arc dial gauge (Renault Clio style)
     const cx = 100; // 100 for 200 width
-    const cy = 78;
-    const radius = 52;
+    const cy = 66;
+    const radius = 46;
 
     // Angle range: 135 deg (Empty) to 45 deg (Full)
     const startAngle = (135 * Math.PI) / 180;
@@ -212,8 +212,8 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
   }, [fuelLevel, tankCapacity, resLiters, currentLitersVal, isReserve]);
 
   return (
-    <div className="flex flex-col items-center justify-center relative w-full h-full">
-      <canvas ref={canvasRef} width={240} height={240} className="w-full h-full object-contain block" />
+    <div className="flex flex-col items-center justify-center relative w-full h-full min-h-0">
+      <canvas ref={canvasRef} width={220} height={145} className="w-full h-full max-h-[145px] object-contain block" />
     </div>
   );
 };

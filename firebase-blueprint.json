@@ -1,0 +1,20 @@
+{
+  "entities": {
+    "telemetry": {
+      "title": "Telemetry",
+      "description": "Vehicle telemetry, trip data, car settings and logs",
+      "type": "object",
+      "properties": {
+        "carConfig": { "type": "object" },
+        "trips": { "type": "object" },
+        "activeTripKey": { "type": "string" },
+        "mode": { "type": "string" },
+        "occurrences": { "type": "array" },
+        "maintenance": { "type": "array" },
+        "fuelLogs": { "type": "array" },
+        "lastUpdated": { "type": "number" }
+      },
+      "required": ["lastUpdated"]
+    }
+  }
+}
