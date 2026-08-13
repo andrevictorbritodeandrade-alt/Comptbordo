@@ -173,13 +173,13 @@ export const SpeedCanvas: React.FC<SpeedCanvasProps> = ({
 
   return (
     <div
-      className={`relative border rounded-2xl p-2 sm:p-3 text-center overflow-hidden flex flex-col items-center justify-center shadow-xl h-full min-h-[150px] transition-colors duration-300 ${
+      className={`relative border rounded-xl p-1 sm:p-2 text-center overflow-hidden flex flex-col items-center justify-center shadow-xl h-full min-h-0 flex-1 transition-colors duration-300 ${
         isOverLimit
           ? 'bg-[#150a0a] border-red-500/50 shadow-red-950/30'
           : 'bg-[#09090d] border-[#1e1e28]'
       }`}
     >
-      <canvas ref={canvasRef} width={240} height={165} className="relative z-10 max-h-[165px] object-contain" />
+      <canvas ref={canvasRef} width={240} height={165} className="relative z-10 max-h-[135px] sm:max-h-[155px] w-full object-contain" />
     </div>
   );
 };

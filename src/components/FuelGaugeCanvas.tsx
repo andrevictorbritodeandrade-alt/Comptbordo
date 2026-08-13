@@ -213,7 +213,7 @@ export const FuelGaugeCanvas: React.FC<FuelGaugeCanvasProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center relative w-full h-full min-h-0">
-      <canvas ref={canvasRef} width={220} height={145} className="w-full h-full max-h-[145px] object-contain block" />
+      <canvas ref={canvasRef} width={220} height={145} className="w-full h-full max-h-[110px] sm:max-h-[125px] object-contain block" />
     </div>
   );
 };

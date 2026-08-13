@@ -113,6 +113,7 @@ export default function App() {
   const [speedLimit, setSpeedLimit] = useState<number>(80);
   const [showPhotoScanner, setShowPhotoScanner] = useState<boolean>(false);
   const [showQuickRefuelModal, setShowQuickRefuelModal] = useState<boolean>(false);
+  const [showTelemetryModal, setShowTelemetryModal] = useState<boolean>(false);
   const [showCitySearchModal, setShowCitySearchModal] = useState<boolean>(false);
   const [citySearchInput, setCitySearchInput] = useState<string>('');
   const [citySearchLoading, setCitySearchLoading] = useState<boolean>(false);
@@ -1417,164 +1418,178 @@ export default function App() {
             {/* Renault Clio Digital Odometer */}
             <div className="shrink-0">
               <OdometerDisplay
-                totalKm={carConfig.totalOdometerKm ?? 150042.0}
+                totalKm={carConfig.totalOdometerKm ?? 150427.0}
                 onOdometerChange={handleOdometerChange}
               />
             </div>
           </div>
 
           {/* Column 2: Trip Computer & Speed Telemetry Stock Chart (Col 5) */}
-          <div ref={middleColRef} className="col-span-12 md:col-span-5 flex flex-col gap-2 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2 sm:p-2.5 shadow-xl overflow-y-auto custom-scrollbar overscroll-contain pb-3 relative">
+          <div ref={middleColRef} className="col-span-12 md:col-span-5 flex flex-col justify-between gap-1.5 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-xl p-1.5 sm:p-2 shadow-xl overflow-hidden relative">
             {/* Trip Tabs Switcher */}
-            <div className="flex bg-[#050508] border border-[#1e1e28] rounded-xl p-0.5 shrink-0">
+            <div className="flex bg-[#050508] border border-[#1e1e28] rounded-lg p-0.5 shrink-0">
               {(['a', 'b'] as TripKey[]).map((k) => (
                 <button
                   key={k}
                   onClick={() => setActiveTripKey(k)}
-                  className={`flex-1 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-1 rounded-md text-xs font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-1.5 ${
                     activeTripKey === k
                       ? 'text-[#c19a6b] bg-[#c19a6b]/20 border border-[#c19a6b]/40 shadow-sm'
                       : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
-                  {k === 'a' ? <Route size={14} /> : <Map size={14} />}
+                  {k === 'a' ? <Route size={13} /> : <Map size={13} />}
                   TRIP {k.toUpperCase()}
                   {trips[k].active && !trips[k].paused && (
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
                   )}
                 </button>
               ))}
             </div>
 
             {/* 4 Primary High-Visibility Trip Cards */}
-            <div className="grid grid-cols-2 gap-2 shrink-0 items-stretch">
-              <div className="bg-[#12121c] border border-[#222232] p-2.5 sm:p-3 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#c19a6b] mb-1">
+            <div className="grid grid-cols-2 gap-1.5 shrink-0 items-stretch">
+              <div className="bg-[#12121c] border border-[#222232] p-1.5 sm:p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
                   DISTÂNCIA
                 </span>
-                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-none">
                   {(activeTrip.distance / 1000).toFixed(1)}
                 </div>
-                <span className="text-xs font-black text-zinc-400 uppercase mt-1">KM</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2.5 sm:p-3 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#c19a6b]">
+              <div className="bg-[#12121c] border border-[#222232] p-1.5 sm:p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b]">
                     TEMPO LÍQUIDO
                   </span>
                   {speed === 0 && activeTrip.active && !activeTrip.paused && (
-                    <span className="text-[9px] font-black text-amber-400 bg-amber-500/15 border border-amber-500/40 px-1.5 py-0.5 rounded-full animate-pulse">
+                    <span className="text-[8px] font-black text-amber-400 bg-amber-500/15 border border-amber-500/40 px-1 py-0.2 rounded-full animate-pulse">
                       PAUSADO
                     </span>
                   )}
                 </div>
-                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-none">
                   {formatTime(activeTrip.elapsedTime)}
                 </div>
-                <span className="text-xs font-black text-zinc-400 uppercase mt-1">
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">
                   HH:MM:SS ({speed > 0 ? 'EM MOVIMENTO' : 'PARADO'})
                 </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2.5 sm:p-3 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#c19a6b] mb-1">
+              <div className="bg-[#12121c] border border-[#222232] p-1.5 sm:p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
                   CONSUMO MÉDIO
                 </span>
-                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-none">
                   {tripAvgCons}
                 </div>
-                <span className="text-xs font-black text-zinc-400 uppercase mt-1">KM / L</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / L</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2.5 sm:p-3 rounded-2xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#c19a6b] mb-1">
+              <div className="bg-[#12121c] border border-[#222232] p-1.5 sm:p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
                   VELOCIDADE MÉDIA
                 </span>
-                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-none">
+                <div className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-none">
                   {tripAvgSpeed}
                 </div>
-                <span className="text-xs font-black text-zinc-400 uppercase mt-1">KM / H</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / H</span>
               </div>
             </div>
 
             {/* Trip Action Buttons */}
-            <div className="grid grid-cols-2 gap-2 shrink-0 mt-1">
+            <div className="grid grid-cols-2 gap-1.5 shrink-0">
               <button
                 onClick={toggleTripState}
-                className="py-2 sm:py-2.5 border border-[#c19a6b] bg-[#c19a6b] hover:bg-[#a88255] text-black rounded-xl text-xs sm:text-sm font-black uppercase tracking-[0.15em] flex justify-center items-center gap-1.5 transition-transform active:scale-95 shadow-lg"
+                className="py-1.5 sm:py-2 border border-[#c19a6b] bg-[#c19a6b] hover:bg-[#a88255] text-black rounded-lg text-xs font-black uppercase tracking-[0.15em] flex justify-center items-center gap-1.5 transition-transform active:scale-95 shadow-md"
               >
                 {activeTrip.active && !activeTrip.paused ? (
                   <>
-                    <Pause size={16} /> PAUSAR TRIP
+                    <Pause size={14} /> PAUSAR TRIP
                   </>
                 ) : (
                   <>
-                    <Play size={16} /> {activeTrip.paused ? 'RETOMAR' : 'INICIAR TRIP'}
+                    <Play size={14} /> {activeTrip.paused ? 'RETOMAR' : 'INICIAR TRIP'}
                   </>
                 )}
               </button>
 
               <button
                 onClick={resetTrip}
-                className="py-2 sm:py-2.5 border border-[#2a2a3c] bg-[#14141e] hover:bg-[#1f1f2c] text-zinc-200 hover:text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-[0.15em] flex justify-center items-center gap-1.5 transition-transform active:scale-95"
+                className="py-1.5 sm:py-2 border border-[#2a2a3c] bg-[#14141e] hover:bg-[#1f1f2c] text-zinc-200 hover:text-white rounded-lg text-xs font-black uppercase tracking-[0.15em] flex justify-center items-center gap-1.5 transition-transform active:scale-95"
               >
-                <RotateCcw size={16} /> ZERAR TRIP
+                <RotateCcw size={14} /> ZERAR TRIP
               </button>
             </div>
 
             {/* Instant Consumption */}
-            <div className="bg-[#12121c] border border-[#222232] px-3 py-2 rounded-2xl shrink-0 mt-1">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-black uppercase tracking-wider text-zinc-300">
+            <div className="bg-[#12121c] border border-[#222232] px-2.5 py-1 rounded-xl shrink-0">
+              <div className="flex justify-between items-center mb-0.5">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-300">
                   CONSUMO INSTANTÂNEO
                 </span>
-                <span className="text-base sm:text-lg font-black text-[#c19a6b]">
-                  {instantConsumption.toFixed(1)} <span className="text-xs font-extrabold text-zinc-400">KM/L</span>
+                <span className="text-sm sm:text-base font-black text-[#c19a6b]">
+                  {instantConsumption.toFixed(1)} <span className="text-[10px] font-extrabold text-zinc-400">KM/L</span>
                 </span>
               </div>
               <InstantConsumptionCanvas instantConsumption={instantConsumption} />
             </div>
 
-            {/* B3 Stock Market Style Speed Chart (Gráfico de Bolsa de Valores) */}
-            <div className="shrink-0 pt-1.5 mt-1.5 border-t border-[#1e1e28]">
-              <SpeedStockChart
-                speedSamples={activeTrip.speedSamples}
-                currentSpeed={speed}
-                avgSpeed={Number(tripAvgSpeed) || 0}
-                speedLimit={speedLimit}
-              />
+            {/* Telemetry Summary & Trigger Button */}
+            <div
+              onClick={() => setShowTelemetryModal(true)}
+              className="bg-[#0e0e18] hover:bg-[#141424] border border-[#222234] hover:border-[#c19a6b]/50 p-1.5 rounded-xl flex items-center justify-between cursor-pointer transition-all shrink-0"
+              title="Abrir Gráficos de Telemetria e Histórico de Velocidade"
+            >
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-md bg-[#c19a6b]/20 border border-[#c19a6b]/40 flex items-center justify-center text-[#c19a6b]">
+                  <Activity size={12} />
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-black uppercase text-zinc-200">TELEMETRIA & GRÁFICO B3</span>
+                    <span className="text-[8px] bg-emerald-500/20 text-emerald-400 font-bold px-1 rounded">LIVE</span>
+                  </div>
+                  <span className="text-[8px] text-zinc-400">Velas, médias e ocorrências em tempo real</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 text-[9px] font-black uppercase text-[#c19a6b] bg-[#1a1a2a] px-2 py-0.5 rounded border border-[#2a2a3e]">
+                <span>Ver Detalhes 📊</span>
+              </div>
             </div>
           </div>
 
           {/* Column 3: Renault Clio Fuel Gauge & Tank Info (Col 3) */}
           <div
-            className={`col-span-12 md:col-span-3 flex flex-col justify-between gap-1.5 sm:gap-2 h-full min-h-0 border rounded-2xl p-2 sm:p-2.5 shadow-xl overflow-hidden transition-colors ${
+            className={`col-span-12 md:col-span-3 flex flex-col justify-between gap-1 h-full min-h-0 border rounded-xl p-1.5 sm:p-2 shadow-xl overflow-hidden transition-colors ${
               isReserveFuel
                 ? 'bg-[#150a0a] border-red-500/60 shadow-red-950/40'
                 : 'bg-[#09090d] border-[#1e1e28]'
             }`}
           >
             {/* Refuel & Photo Scan Action Buttons */}
-            <div className="grid grid-cols-2 gap-1.5 shrink-0">
+            <div className="grid grid-cols-2 gap-1 shrink-0">
               <button
                 onClick={() => setShowQuickRefuelModal(true)}
-                className="py-1.5 px-2 bg-[#1b1b2a] hover:bg-[#25253b] text-amber-400 border border-amber-500/40 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
+                className="py-1 px-1.5 bg-[#1b1b2a] hover:bg-[#25253b] text-amber-400 border border-amber-500/40 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
               >
-                <Fuel size={14} className="text-amber-400" /> Abastecer
+                <Fuel size={12} className="text-amber-400" /> Abastecer
               </button>
               <button
                 onClick={() => setShowPhotoScanner(true)}
-                className="py-1.5 px-2 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
+                className="py-1 px-1.5 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
               >
-                <Sparkles size={14} className="text-[#c19a6b]" /> Escanear
+                <Sparkles size={12} className="text-[#c19a6b]" /> Escanear
               </button>
             </div>
 
             {/* Dial Canvas (Visor Comprimido e Elevado) */}
             <div className="flex-1 min-h-0 flex justify-center items-center relative w-full h-full">
               <div
-                className={`w-full h-full border rounded-2xl p-1 relative flex justify-center items-center shadow-inner ${
+                className={`w-full h-full border rounded-xl p-0.5 relative flex justify-center items-center shadow-inner ${
                   isReserveFuel
                     ? 'bg-[#1e0a0a] border-red-500/50'
                     : 'bg-[#12121c] border-[#222232]'
@@ -1586,61 +1601,99 @@ export default function App() {
                   reserveLiters={reserveLitersNum}
                 />
                 {isReserveFuel && (
-                  <div className="absolute top-1.5 right-1.5 bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] border border-white animate-bounce shadow-md">
+                  <div className="absolute top-1 right-1 bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center font-black text-[9px] border border-white animate-bounce shadow-md">
                     R
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Tank Metrics Grid */}
-            <div className="grid grid-cols-2 gap-1.5 shrink-0 my-0">
+            {/* Tank Metrics Grid - 4 Perfectly Framed Cards */}
+            <div className="grid grid-cols-2 gap-1 shrink-0 my-0">
               <div
-                className={`p-1 sm:p-1.5 rounded-xl text-center flex flex-col justify-center border ${
+                className={`p-1 sm:p-1.5 rounded-lg text-center flex flex-col justify-center border ${
                   isReserveFuel
                     ? 'bg-red-950/30 border-red-500/50'
                     : 'bg-[#12121c] border-[#222232]'
                 }`}
               >
-                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
-                <div className={`text-base sm:text-lg md:text-xl font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
+                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
+                <div className={`text-xs sm:text-sm md:text-base font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
                   {currentLiters} L
                 </div>
-                <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
+                <span className="text-[8px] sm:text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
               </div>
 
               <div
-                className={`p-1 sm:p-1.5 rounded-xl text-center flex flex-col justify-center border ${
+                className={`p-1 sm:p-1.5 rounded-lg text-center flex flex-col justify-center border ${
                   isReserveFuel
                     ? 'bg-red-500/20 border-red-500 shadow-md animate-pulse'
                     : 'bg-[#12121c] border-[#222232]'
                 }`}
               >
-                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-red-400">RESERVA</span>
-                <div className="text-base sm:text-lg md:text-xl font-black text-red-400 mt-0.5">
+                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-red-400">RESERVA</span>
+                <div className="text-xs sm:text-sm md:text-base font-black text-red-400 mt-0.5">
                   {isReserveFuel ? '⚠️ RESERVA' : `≤ ${reserveLiters} L`}
                 </div>
-                <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">
-                  {isReserveFuel ? `${currentLiters}L ≤ ${reserveLiters}L` : `Limite ${reserveLiters} Litros`}
+                <span className="text-[8px] sm:text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">
+                  {isReserveFuel ? `${currentLiters}L ≤ ${reserveLiters}L` : `Limite ${reserveLiters} L`}
                 </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-1 sm:p-1.5 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
-                <div className="text-base sm:text-lg md:text-xl font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
-                <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">com {currentLiters} Litros</span>
+              <div className="bg-[#12121c] border border-[#222232] p-1 sm:p-1.5 rounded-lg text-center flex flex-col justify-center">
+                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA ATUAL</span>
+                <div className="text-xs sm:text-sm md:text-base font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
+                <span className="text-[8px] sm:text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">com {currentLiters} L</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-1 sm:p-1.5 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
-                <div className="text-base sm:text-lg md:text-xl font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
-                <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
+              <div className="bg-[#12121c] border border-[#222232] p-1 sm:p-1.5 rounded-lg text-center flex flex-col justify-center">
+                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
+                <div className="text-xs sm:text-sm md:text-base font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
+                <span className="text-[8px] sm:text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
               </div>
             </div>
           </div>
         </div>
 
       </div>
+
+      {/* Speed Telemetry & B3 Stock Chart Modal */}
+      {showTelemetryModal && (
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md">
+          <div className="bg-[#09090e] border border-[#2a2a3e] rounded-3xl p-3 sm:p-5 w-full max-w-2xl max-h-[90vh] shadow-2xl relative flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#1f1f2e] shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-[#c19a6b]/20 border border-[#c19a6b]/40 rounded-xl text-[#c19a6b]">
+                  <Activity size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
+                    Telemetria & Gráfico B3
+                  </h3>
+                  <p className="text-[10px] text-zinc-400">Análise técnica e histórico de velocidade em tempo real</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowTelemetryModal(false)}
+                className="text-zinc-400 hover:text-white p-2 bg-[#181824] rounded-full transition-colors"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
+              <SpeedStockChart
+                speedSamples={activeTrip.speedSamples}
+                currentSpeed={speed}
+                avgSpeed={Number(tripAvgSpeed) || 0}
+                speedLimit={speedLimit}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fuel Photo Scanner Modal (Gemini AI Vision) */}
       <FuelPhotoScannerModal
