@@ -73,15 +73,16 @@ export default function App() {
   const [carConfig, setCarConfig] = useState<CarConfig>(() => {
     if (savedState?.carConfig) {
       const cfg = savedState.carConfig;
-      // Force update total odometer to 150042.0 km to match car dashboard photo
-      if (localStorage.getItem('odometer_sync_150042_v1') !== 'true' || !cfg.totalOdometerKm || cfg.totalOdometerKm < 150000) {
-        cfg.totalOdometerKm = 150042.0;
-        localStorage.setItem('odometer_sync_150042_v1', 'true');
+      // Force update total odometer to 150427.0 km to match recent photo
+      if (localStorage.getItem('odometer_sync_150427_v1') !== 'true' || !cfg.totalOdometerKm || cfg.totalOdometerKm < 150400) {
+        cfg.totalOdometerKm = 150427.0;
+        localStorage.setItem('odometer_sync_150427_v1', 'true');
       }
-      // Force update fuel level to 37.5% (1º tracinho abaixo da metade/meio tanque = 18.75 Litros)
-      if (localStorage.getItem('fuel_override_37_5_v10') !== 'true' || cfg.fuelLevel < 5.0) {
-        cfg.fuelLevel = 37.5;
-        localStorage.setItem('fuel_override_37_5_v10', 'true');
+      // Force update fuel level to 42.0% (~21 Litros no 4º traço do Clio) and fuel type to Etanol
+      if (localStorage.getItem('fuel_override_ethanol_150427_v1') !== 'true') {
+        cfg.fuelLevel = 42.0;
+        cfg.currentFuel = 'ethanol';
+        localStorage.setItem('fuel_override_ethanol_150427_v1', 'true');
       }
       return cfg;
     }
@@ -89,11 +90,11 @@ export default function App() {
       model: 'Renault Clio',
       details: '2010 1.0 16V Hi-Flex',
       tankCapacity: 50,
-      currentFuel: 'gasoline',
-      fuelLevel: 37.5, // ~18.75 Litros (1º tracinho abaixo da metade)
+      currentFuel: 'ethanol',
+      fuelLevel: 42.0, // ~21.0 Litros (4º traço no painel do Clio conforme foto)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
-      totalOdometerKm: 150042.0,
+      totalOdometerKm: 150427.0,
     };
   });
 
@@ -460,13 +461,14 @@ export default function App() {
           if (!snapshot.metadata.hasPendingWrites) {
             if (data.carConfig) {
               const cfg = data.carConfig;
-              if (localStorage.getItem('odometer_sync_150042_v1') !== 'true' || !cfg.totalOdometerKm || cfg.totalOdometerKm < 150000) {
-                cfg.totalOdometerKm = 150042.0;
-                localStorage.setItem('odometer_sync_150042_v1', 'true');
+              if (localStorage.getItem('odometer_sync_150427_v1') !== 'true' || !cfg.totalOdometerKm || cfg.totalOdometerKm < 150400) {
+                cfg.totalOdometerKm = 150427.0;
+                localStorage.setItem('odometer_sync_150427_v1', 'true');
               }
-              if (localStorage.getItem('fuel_override_37_5_v10') !== 'true' || cfg.fuelLevel < 5.0) {
-                cfg.fuelLevel = 37.5;
-                localStorage.setItem('fuel_override_37_5_v10', 'true');
+              if (localStorage.getItem('fuel_override_ethanol_150427_v1') !== 'true') {
+                cfg.fuelLevel = 42.0;
+                cfg.currentFuel = 'ethanol';
+                localStorage.setItem('fuel_override_ethanol_150427_v1', 'true');
               }
               setCarConfig(cfg);
             }
@@ -1148,7 +1150,7 @@ export default function App() {
         activeTrip={activeTrip}
         toggleTripState={toggleTripState}
         resetTrip={resetTrip}
-        totalKm={carConfig.totalOdometerKm ?? 150042.0}
+        totalKm={carConfig.totalOdometerKm ?? 150427.0}
         onOdometerChange={handleOdometerChange}
         currentTime={currentTime}
         onExitSplitMode={() => setUserSplitModeOverride(false)}
