@@ -288,6 +288,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
   const [calculatedRoutes, setCalculatedRoutes] = useState<NavigationRoute[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
+  const [isRecalculatingRoute, setIsRecalculatingRoute] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [aiCopilotData, setAiCopilotData] = useState<{
     copilotMessage?: string;
@@ -300,6 +301,26 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
   const [showTurnByTurn, setShowTurnByTurn] = useState(false);
   const [autoFollowCar, setAutoFollowCar] = useState(true);
   const [userInteractedMap, setUserInteractedMap] = useState(false);
+
+  // Real-time Clock for Driver Cockpit
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  useEffect(() => {
+    const clockTimer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(clockTimer);
+  }, []);
+
+  // Trip Completed Summary Modal State
+  const [isTripCompletedModalOpen, setIsTripCompletedModalOpen] = useState(false);
+  const [tripSummary, setTripSummary] = useState<{
+    destinationName: string;
+    totalDistanceKm: number;
+    durationMinutes: number;
+    litersConsumed: number;
+    totalCostBrl: number;
+    ecoScore: number;
+  } | null>(null);
 
   // Driver navigation real-time tracking
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -314,6 +335,11 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const simulationCoordIndexRef = useRef(0);
   const lastSpokenStepIndexRef = useRef<number>(-1);
+  
+  // Intelligent Off-Route and Auto-Reroute tracking refs
+  const offRouteCountRef = useRef<number>(0);
+  const lastRerouteTimeRef = useRef<number>(0);
+  const isAutoReroutingRef = useRef<boolean>(false);
 
   // Clio fuel calculations base
   const fuelType = carConfig.currentFuel || 'gasoline';
@@ -796,6 +822,46 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     return (brng + 360) % 360;
   }
 
+  // Helper: Point to Line Segment Perpendicular Distance in Meters
+  function pointToSegmentDistanceMeters(
+    p: [number, number],
+    v: [number, number],
+    w: [number, number]
+  ): number {
+    const l2 = (w[0] - v[0]) ** 2 + (w[1] - v[1]) ** 2;
+    if (l2 === 0) return computeDistanceMeters(p, v);
+    const t = Math.max(
+      0,
+      Math.min(
+        1,
+        ((p[0] - v[0]) * (w[0] - v[0]) + (p[1] - v[1]) * (w[1] - v[1])) / l2
+      )
+    );
+    const projection: [number, number] = [
+      v[0] + t * (w[0] - v[0]),
+      v[1] + t * (w[1] - v[1]),
+    ];
+    return computeDistanceMeters(p, projection);
+  }
+
+  // Helper: Minimum distance from vehicle position to active route coordinates
+  function minDistanceToRouteMeters(
+    pos: { lat: number; lng: number },
+    routeCoords: [number, number][]
+  ): number {
+    if (!routeCoords || routeCoords.length < 2) return 99999;
+    let minD = Infinity;
+    for (let i = 0; i < routeCoords.length - 1; i++) {
+      const d = pointToSegmentDistanceMeters(
+        [pos.lat, pos.lng],
+        routeCoords[i],
+        routeCoords[i + 1]
+      );
+      if (d < minD) minD = d;
+    }
+    return minD;
+  }
+
   // ─── OFFLINE DOWNLOAD REGION HANDLER ───
   const handleDownloadRegion = async (reg: typeof PRESET_BRAZIL_REGIONS[0]) => {
     setIsDownloadingOffline(true);
@@ -1195,6 +1261,178 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       setIsCalculatingRoutes(false);
     }
   };
+
+  // ─── AUTO REROUTE ENGINE (OFF-ROUTE 1-2 SECONDS RECALCULATION) ───
+  const handleAutoRerouteLive = async (
+    currentPos: { lat: number; lng: number },
+    targetDest: { lat: number; lng: number },
+    destName: string
+  ) => {
+    if (isAutoReroutingRef.current) return;
+    isAutoReroutingRef.current = true;
+    setIsRecalculatingRoute(true);
+    lastRerouteTimeRef.current = Date.now();
+    offRouteCountRef.current = 0;
+
+    roadAlertsEngine.speak('Recalculando nova rota...');
+
+    try {
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${currentPos.lng},${currentPos.lat};${targetDest.lng},${targetDest.lat}?overview=full&geometries=geojson&steps=true&alternatives=false`;
+
+      let rawRoute: any = null;
+      try {
+        const response = await fetch(osrmUrl, { signal: AbortSignal.timeout(3500) });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.routes && data.routes.length > 0) {
+            rawRoute = data.routes[0];
+          }
+        }
+      } catch (err) {
+        console.warn('Falha OSRM em recálculo, ativando fallback local...', err);
+      }
+
+      let newRoute: NavigationRoute;
+
+      if (rawRoute) {
+        const coords: [number, number][] = rawRoute.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+        const distanceKm = Number((rawRoute.distance / 1000).toFixed(1));
+        const durationMin = Math.max(1, Math.round(rawRoute.duration / 60));
+        const litersNeeded = Number((distanceKm / baseKmPerL).toFixed(2));
+        const costEstimatedBrl = Number((litersNeeded * fuelPricePerLiter).toFixed(2));
+
+        const routeSteps: RouteStep[] = (rawRoute.legs?.[0]?.steps || []).map((s: any) => ({
+          instruction: formatManeuver(s.maneuver),
+          distance: s.distance,
+          name: s.name || 'Via Principal',
+          type: s.maneuver?.type,
+          modifier: s.maneuver?.modifier,
+        }));
+
+        newRoute = {
+          id: `reroute-${Date.now()}`,
+          routeType: 'eco',
+          routeName: '🍃 Nova Rota Recalculada',
+          originName: 'Posição Atual',
+          destinationName: destName,
+          distanceKm,
+          durationMin,
+          coordinates: coords,
+          steps: routeSteps,
+          litersNeeded,
+          costEstimatedBrl,
+          ecoScore: 92,
+          fuelSufficiency: `Tanque suficiente! (${currentLitersInTank.toFixed(1)}L disponíveis)`,
+        };
+      } else {
+        newRoute = generateOfflineFallbackRoute(currentPos, targetDest, destName);
+        newRoute.routeName = '🌿 Nova Rota Recalculada (Offline)';
+      }
+
+      setCalculatedRoutes([newRoute]);
+      setSelectedRouteId(newRoute.id);
+      setLiveRemainingDistanceKm(newRoute.distanceKm);
+      setLiveRemainingDurationMin(newRoute.durationMin);
+      setCurrentStepIndex(0);
+      lastSpokenStepIndexRef.current = -1;
+
+      // Update map polylines seamlessly
+      if (mapInstanceRef.current) {
+        renderRoutesOnMap([newRoute], newRoute.id, currentPos, targetDest, destName);
+      }
+
+      const nextInst = newRoute.steps?.[0]?.instruction || 'Siga a rota traçada.';
+      roadAlertsEngine.speak(`Nova rota traçada. ${nextInst}`);
+    } catch (e) {
+      console.error('Erro no auto-reroute:', e);
+    } finally {
+      setIsRecalculatingRoute(false);
+      isAutoReroutingRef.current = false;
+    }
+  };
+
+  // ─── FINISH TRIP / ARRIVAL HANDLER ───
+  const finishTrip = (route: NavigationRoute) => {
+    stopLiveNavigation();
+    const finalSummary = {
+      destinationName: route.destinationName || destinationInput || 'Destino',
+      totalDistanceKm: route.distanceKm,
+      durationMinutes: route.durationMin,
+      litersConsumed: route.litersNeeded,
+      totalCostBrl: route.costEstimatedBrl || Number((route.litersNeeded * fuelPricePerLiter).toFixed(2)),
+      ecoScore: route.ecoScore || 95,
+    };
+    setTripSummary(finalSummary);
+    setIsTripCompletedModalOpen(true);
+    roadAlertsEngine.speak('Você chegou ao seu destino! Boa viagem com seu Clio.');
+  };
+
+  // ─── REAL-TIME OFF-ROUTE DETECTOR, PROGRESS TRACKER & ARRIVAL ENGINE ───
+  useEffect(() => {
+    if (!isLiveNavigating || !destinationCoords || isSimulatingDrive) return;
+
+    const route = calculatedRoutes.find((r) => r.id === selectedRouteId) || calculatedRoutes[0];
+    if (!route || !route.coordinates || route.coordinates.length < 2) return;
+
+    const currentPos = driverPos;
+    const dest = destinationCoords;
+
+    // 1. ARRIVAL CHECK: Less than 35 meters to final destination
+    const distanceToDestMeters = computeDistanceMeters([currentPos.lat, currentPos.lng], [dest.lat, dest.lng]);
+    if (distanceToDestMeters < 35) {
+      finishTrip(route);
+      return;
+    }
+
+    // 2. OFF-ROUTE DETECTION & 1-2 SECONDS AUTO REROUTE
+    const distToRoute = minDistanceToRouteMeters(currentPos, route.coordinates);
+    const now = Date.now();
+
+    if (distToRoute > 42) {
+      offRouteCountRef.current += 1;
+      // If off route for 2 consecutive ticks (approx 1-2 seconds) and hasn't rerouted in the last 3.5s
+      if (offRouteCountRef.current >= 2 && now - lastRerouteTimeRef.current > 3500) {
+        handleAutoRerouteLive(currentPos, dest, route.destinationName);
+      }
+    } else {
+      offRouteCountRef.current = 0;
+    }
+
+    // 3. PROGRESS UPDATE ALONG THE ROUTE (When driving normally)
+    if (distToRoute <= 42) {
+      // Find closest point index in route coords to calculate remaining fraction
+      let closestIdx = 0;
+      let minPtDist = Infinity;
+      for (let i = 0; i < route.coordinates.length; i++) {
+        const d = computeDistanceMeters([currentPos.lat, currentPos.lng], route.coordinates[i]);
+        if (d < minPtDist) {
+          minPtDist = d;
+          closestIdx = i;
+        }
+      }
+
+      const totalCoords = route.coordinates.length;
+      const fractionRemaining = Math.max(0, 1 - closestIdx / totalCoords);
+      const remKm = Math.max(0.1, Number((route.distanceKm * fractionRemaining).toFixed(1)));
+      const remMin = Math.max(1, Math.round(route.durationMin * fractionRemaining));
+      setLiveRemainingDistanceKm(remKm);
+      setLiveRemainingDurationMin(remMin);
+
+      const stepCount = route.steps?.length || 1;
+      const estimatedStepIdx = Math.min(stepCount - 1, Math.floor((closestIdx / totalCoords) * stepCount));
+      setCurrentStepIndex(estimatedStepIdx);
+
+      const stepMeters = Math.max(25, Math.round((fractionRemaining * (route.distanceKm * 1000)) / stepCount));
+      setDistanceToNextStepMeters(stepMeters);
+
+      if (estimatedStepIdx !== lastSpokenStepIndexRef.current && route.steps?.[estimatedStepIdx]) {
+        lastSpokenStepIndexRef.current = estimatedStepIdx;
+        const currentInst = route.steps[estimatedStepIdx].instruction;
+        const street = route.steps[estimatedStepIdx].name;
+        roadAlertsEngine.speak(`Em ${stepMeters} metros, ${currentInst} ${street ? `na ${street}` : ''}`);
+      }
+    }
+  }, [driverPos, isLiveNavigating, destinationCoords, selectedRouteId, isSimulatingDrive]);
 
   function formatManeuver(m: any) {
     if (!m) return 'Siga em frente';
@@ -1631,8 +1869,8 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
         <div className="bg-[#0b0b12]/98 border-b border-[#1f1f2e] p-2 z-30 shadow-2xl backdrop-blur-md shrink-0 flex flex-col gap-1.5">
           {/* Compact Top Navigation Action Bar */}
           <div className="flex items-center justify-between gap-1.5 flex-wrap">
-            {/* GPS Status / Activate Button */}
-            <div className="flex items-center gap-1.5">
+            {/* GPS Status / Activate Button & Real-time Clock */}
+            <div className="flex items-center gap-2">
               {gpsActive ? (
                 <div className="flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/40 px-2 py-1 rounded-lg text-emerald-400 text-xs font-black">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
@@ -1649,6 +1887,12 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
                   <span>Ativar Meu GPS</span>
                 </button>
               )}
+
+              {/* Real-time Clock Display */}
+              <div className="flex items-center gap-1.5 bg-[#141424] border border-[#2a2a3e] px-2.5 py-1 rounded-lg text-white text-xs font-black tracking-wider">
+                <Clock size={12} className="text-amber-400 animate-spin" style={{ animationDuration: '60s' }} />
+                <span>{currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+              </div>
             </div>
 
             {/* Quick Feature Controls */}
@@ -1996,8 +2240,13 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
               </div>
             </div>
 
-            {/* Quick Driver Controls */}
+            {/* Live Clock & Driver Quick Controls */}
             <div className="flex items-center gap-1.5 shrink-0">
+              <div className="hidden sm:flex items-center gap-1 bg-[#141424] border border-[#2a2a3e] px-2.5 py-2 rounded-xl text-white text-xs font-black">
+                <Clock size={13} className="text-amber-400" />
+                <span>{currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+
               <button
                 onClick={() => setIsVoiceFeedbackEnabled(!isVoiceFeedbackEnabled)}
                 className={`p-2 rounded-xl border text-xs font-bold transition-all ${
@@ -2041,6 +2290,14 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       {/* ─── MAIN LEAFLET MAP CONTAINER ─── */}
       <div className="relative flex-1 w-full min-h-0">
         <div ref={mapContainerRef} className="w-full h-full z-10" />
+
+        {/* Dynamic Auto-Reroute Realtime Badge */}
+        {isRecalculatingRoute && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 bg-amber-500/90 text-black px-4 py-2 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-2 font-black text-xs uppercase tracking-wider animate-bounce border border-amber-300">
+            <Loader2 size={16} className="animate-spin" />
+            <span>Recalculando nova rota para o destino...</span>
+          </div>
+        )}
 
         {/* Proactive Nearby Hazards Alert Floating Pill (Waze Style) */}
         {nearbyHazards.length > 0 && (
@@ -2614,6 +2871,87 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: VIAGEM CONCLUÍDA / DESTINO ALCANÇADO ─── */}
+      {isTripCompletedModalOpen && tripSummary && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#0e0e1a] border border-emerald-500/40 rounded-3xl p-6 shadow-2xl shadow-emerald-500/20 flex flex-col gap-4 animate-in zoom-in-95">
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.4)] animate-bounce">
+                <CheckCircle2 size={36} />
+              </div>
+              <h3 className="text-lg font-black text-white uppercase tracking-wide">
+                Você Chegou ao Seu Destino!
+              </h3>
+              <p className="text-xs text-emerald-300 font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                📍 {tripSummary.destinationName}
+              </p>
+            </div>
+
+            {/* Trip Stats Grid */}
+            <div className="grid grid-cols-2 gap-2.5 my-1">
+              <div className="bg-[#141424] border border-[#24243c] p-3 rounded-2xl flex flex-col items-center text-center">
+                <span className="text-[10px] font-black uppercase text-zinc-400">Distância Percorrida</span>
+                <span className="text-xl font-black text-white mt-0.5">{tripSummary.totalDistanceKm} km</span>
+              </div>
+
+              <div className="bg-[#141424] border border-[#24243c] p-3 rounded-2xl flex flex-col items-center text-center">
+                <span className="text-[10px] font-black uppercase text-zinc-400">Tempo Estimado</span>
+                <span className="text-xl font-black text-emerald-400 mt-0.5">{tripSummary.durationMinutes} min</span>
+              </div>
+
+              <div className="bg-[#141424] border border-[#24243c] p-3 rounded-2xl flex flex-col items-center text-center">
+                <span className="text-[10px] font-black uppercase text-zinc-400">Consumo de {fuelTypeLabel}</span>
+                <span className="text-lg font-black text-amber-300 mt-0.5">~{tripSummary.litersConsumed} L</span>
+              </div>
+
+              <div className="bg-[#141424] border border-[#24243c] p-3 rounded-2xl flex flex-col items-center text-center">
+                <span className="text-[10px] font-black uppercase text-zinc-400">Custo Total Estimado</span>
+                <span className="text-lg font-black text-emerald-300 mt-0.5">R$ {tripSummary.totalCostBrl.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-2xl p-2.5 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-emerald-300 font-bold">
+                <Leaf size={16} />
+                <span>Eficiência Clio Hi-Flex:</span>
+              </div>
+              <span className="font-black text-emerald-400">{tripSummary.ecoScore}/100 Eco-Score</span>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              {!isCurrentDestFavorited && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTripCompletedModalOpen(false);
+                    handleOpenSaveFavorite();
+                  }}
+                  className="py-3 px-3 bg-[#18182a] hover:bg-[#24243c] text-amber-300 text-xs font-black uppercase rounded-2xl border border-amber-500/30 flex items-center justify-center gap-1.5 transition-all"
+                  title="Salvar este local nos favoritos"
+                >
+                  <Star size={15} />
+                  <span>Favoritar</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsTripCompletedModalOpen(false);
+                  setDestinationInput('');
+                  setDestinationCoords(null);
+                  clearAllRoutes();
+                }}
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-black uppercase rounded-2xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+              >
+                <Check size={16} />
+                <span>Concluir Viagem</span>
+              </button>
             </div>
           </div>
         </div>
