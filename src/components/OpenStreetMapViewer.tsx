@@ -77,6 +77,11 @@ import {
   roadAlertsEngine,
   DEFAULT_ROAD_HAZARDS,
 } from '../utils/roadAlertsEngine';
+import {
+  searchOfflineGeoDb,
+  hybridResolveLocation,
+  GeocodedLocation,
+} from '../utils/brazilGeocodingDb';
 
 interface OpenStreetMapViewerProps {
   currentLat: number;
@@ -93,8 +98,11 @@ interface OpenStreetMapViewerProps {
 
 interface PlaceSuggestion {
   display_name: string;
-  lat: string;
-  lon: string;
+  name?: string;
+  category?: string;
+  lat: string | number;
+  lon: string | number;
+  isOffline?: boolean;
 }
 
 const DEFAULT_FAVORITES: FavoriteDestination[] = [
@@ -298,6 +306,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
 
   // ─── WAZE / GOOGLE MAPS DRIVER TURN-BY-TURN NAVIGATION STATES ───
   const [isLiveNavigating, setIsLiveNavigating] = useState(false);
+  const [isHeadingUpNavigation, setIsHeadingUpNavigation] = useState(true); // Modo Waze: Pista para cima
   const [showTurnByTurn, setShowTurnByTurn] = useState(false);
   const [autoFollowCar, setAutoFollowCar] = useState(true);
   const [userInteractedMap, setUserInteractedMap] = useState(false);
@@ -627,15 +636,21 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
   }, [roadHazards]);
 
   // Create or update Car Icon with heading rotation and Cockpit Style
-  function createDriverCarIcon(currSpeed: number, headingDeg: number, navigating: boolean) {
+  function createDriverCarIcon(
+    currSpeed: number,
+    headingDeg: number,
+    navigating: boolean,
+    isHeadingUp: boolean = true
+  ) {
     if (navigating) {
+      // In Heading Up (Waze) mode, the map rotates underneath, so the car stays pointed UP (0 deg)
+      // In North Up mode, the car marker itself rotates
+      const rotation = isHeadingUp ? 0 : Math.round(headingDeg);
       const html = `
-        <div class="relative flex items-center justify-center pointer-events-none" style="transform: rotate(${Math.round(
-          headingDeg
-        )}deg); transition: transform 0.4s ease-out;">
-          <div class="w-11 h-11 rounded-full bg-emerald-500/20 flex items-center justify-center animate-ping absolute inset-0"></div>
-          <div class="w-11 h-11 rounded-full bg-[#050509] border-[3px] border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.8)] flex items-center justify-center text-emerald-300">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <div class="relative flex items-center justify-center pointer-events-none" style="transform: rotate(${rotation}deg); transition: transform 0.3s ease-out;">
+          <div class="w-12 h-12 rounded-full bg-emerald-500/25 flex items-center justify-center animate-ping absolute inset-0"></div>
+          <div class="w-12 h-12 rounded-full bg-[#030306] border-[3.5px] border-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.9)] flex items-center justify-center text-emerald-300">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none">
               <path d="M12 2L4 20L12 16L20 20L12 2Z" />
             </svg>
           </div>
@@ -644,19 +659,19 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       return L.divIcon({
         html,
         className: 'driver-nav-car-marker',
-        iconSize: [44, 44],
-        iconAnchor: [22, 22],
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
       });
     }
 
     const html = `
-      <div class="relative flex items-center justify-center">
+      <div class="relative flex items-center justify-center" style="transform: rotate(${Math.round(headingDeg)}deg);">
         <div class="w-8 h-8 rounded-full bg-[#050508] border-2 border-emerald-400 flex items-center justify-center text-emerald-400 shadow-xl gps-marker-pulse">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
           </svg>
         </div>
-        <div class="absolute -bottom-4 bg-black/90 text-[9px] font-black text-emerald-300 px-1 py-0.2 rounded border border-emerald-500/40 whitespace-nowrap shadow-md">
+        <div class="absolute -bottom-4 bg-black/90 text-[9px] font-black text-emerald-300 px-1 py-0.2 rounded border border-emerald-500/40 whitespace-nowrap shadow-md" style="transform: rotate(${-Math.round(headingDeg)}deg);">
           ${Math.round(currSpeed)} KM/H
         </div>
       </div>
@@ -677,7 +692,9 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     const lng = driverPos.lng;
 
     carMarkerRef.current.setLatLng([lat, lng]);
-    carMarkerRef.current.setIcon(createDriverCarIcon(liveNavSpeed, vehicleHeading, isLiveNavigating));
+    carMarkerRef.current.setIcon(
+      createDriverCarIcon(liveNavSpeed, vehicleHeading, isLiveNavigating, isHeadingUpNavigation)
+    );
 
     if (trailPolylineRef.current) {
       if (breadcrumbTrail && breadcrumbTrail.length > 0) {
@@ -694,48 +711,118 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
         mapInstanceRef.current.panTo([lat, lng], { animate: true, duration: 0.4 });
       }
     }
-  }, [driverPos, liveNavSpeed, vehicleHeading, isLiveNavigating, autoFollowCar, breadcrumbTrail]);
+  }, [
+    driverPos,
+    liveNavSpeed,
+    vehicleHeading,
+    isLiveNavigating,
+    isHeadingUpNavigation,
+    autoFollowCar,
+    breadcrumbTrail,
+  ]);
 
-  // Autocomplete place search via Nominatim
-  const searchPlaceNominatim = useCallback(async (query: string, type: 'origin' | 'dest') => {
-    if (!query || query.length < 3 || query.startsWith('📍')) {
-      if (type === 'origin') setOriginSuggestions([]);
-      else setDestSuggestions([]);
-      return;
-    }
-
-    setIsSearchingSuggestions(true);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-        query
-      )}&countrycodes=br&limit=5&addressdetails=1`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data: PlaceSuggestion[] = await res.json();
-        if (type === 'origin') {
-          setOriginSuggestions(data);
-        } else {
-          setDestSuggestions(data);
-        }
+  // Autocomplete place search combining Offline Database & Nominatim
+  const searchPlaceNominatim = useCallback(
+    async (query: string, type: 'origin' | 'dest', initialOfflineResults: PlaceSuggestion[] = []) => {
+      if (!query || query.trim().length === 0 || query.startsWith('📍')) {
+        if (type === 'origin') setOriginSuggestions([]);
+        else setDestSuggestions([]);
+        return;
       }
-    } catch (err) {
-      console.warn('Erro na busca de locais:', err);
-    } finally {
-      setIsSearchingSuggestions(false);
-    }
-  }, []);
+
+      setIsSearchingSuggestions(true);
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          query
+        )}&countrycodes=br&limit=6&addressdetails=1`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
+        if (res.ok) {
+          const onlineData: any[] = await res.json();
+          const onlineSuggestions: PlaceSuggestion[] = (onlineData || []).map((d) => ({
+            display_name: d.display_name,
+            name: d.name || d.display_name.split(',')[0],
+            category: 'online',
+            lat: parseFloat(d.lat),
+            lon: parseFloat(d.lon),
+            isOffline: false,
+          }));
+
+          // Merge offline and online suggestions avoiding coordinate duplicates
+          const seen = new Set<string>();
+          const merged: PlaceSuggestion[] = [];
+
+          for (const item of [...initialOfflineResults, ...onlineSuggestions]) {
+            const latFixed = Number(item.lat).toFixed(3);
+            const lonFixed = Number(item.lon).toFixed(3);
+            const key = `${latFixed},${lonFixed}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(item);
+            }
+          }
+
+          if (type === 'origin') {
+            setOriginSuggestions(merged);
+          } else {
+            setDestSuggestions(merged);
+          }
+        }
+      } catch (err) {
+        console.warn('Erro na busca online de locais (mantendo locais offline):', err);
+        if (initialOfflineResults.length > 0) {
+          if (type === 'origin') setOriginSuggestions(initialOfflineResults);
+          else setDestSuggestions(initialOfflineResults);
+        }
+      } finally {
+        setIsSearchingSuggestions(false);
+      }
+    },
+    []
+  );
 
   const handleOriginChange = (val: string) => {
     setOriginInput(val);
     setIsUsingGpsOrigin(false);
     setActiveSuggestionField('origin');
-    searchPlaceNominatim(val, 'origin');
+
+    // 1. Instantaneous offline local database search (0ms)
+    const offlineMatches = searchOfflineGeoDb(val, 6);
+    const offlineFormatted: PlaceSuggestion[] = offlineMatches.map((m) => ({
+      name: m.name,
+      display_name: m.display_name,
+      category: m.category,
+      lat: m.lat,
+      lon: m.lng,
+      isOffline: true,
+    }));
+    setOriginSuggestions(offlineFormatted);
+
+    // 2. Parallel Nominatim lookup for complete internet coverage
+    if (val.trim().length >= 2) {
+      searchPlaceNominatim(val, 'origin', offlineFormatted);
+    }
   };
 
   const handleDestChange = (val: string) => {
     setDestinationInput(val);
     setActiveSuggestionField('dest');
-    searchPlaceNominatim(val, 'dest');
+
+    // 1. Instantaneous offline local database search (0ms)
+    const offlineMatches = searchOfflineGeoDb(val, 6);
+    const offlineFormatted: PlaceSuggestion[] = offlineMatches.map((m) => ({
+      name: m.name,
+      display_name: m.display_name,
+      category: m.category,
+      lat: m.lat,
+      lon: m.lng,
+      isOffline: true,
+    }));
+    setDestSuggestions(offlineFormatted);
+
+    // 2. Parallel Nominatim lookup for complete internet coverage
+    if (val.trim().length >= 2) {
+      searchPlaceNominatim(val, 'dest', offlineFormatted);
+    }
   };
 
   const handleSetOriginToGps = () => {
@@ -749,8 +836,8 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
   };
 
   const handleSelectSuggestion = (place: PlaceSuggestion, type: 'origin' | 'dest') => {
-    const lat = parseFloat(place.lat);
-    const lng = parseFloat(place.lon);
+    const lat = typeof place.lat === 'string' ? parseFloat(place.lat) : place.lat;
+    const lng = typeof place.lon === 'string' ? parseFloat(place.lon) : place.lon;
 
     if (type === 'origin') {
       setOriginInput(place.display_name);
@@ -1094,18 +1181,47 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     endPoint: { lat: number; lng: number } | null,
     destTitle?: string
   ) => {
-    const start =
+    let start =
       startPoint ||
       (isUsingGpsOrigin ? { lat: currentLat || -22.9194, lng: currentLng || -42.8186 } : originCoords);
-    const end = endPoint || destinationCoords;
-
-    if (!start || !end) {
-      setRouteError('Defina um ponto de origem e um destino para traçar a rota.');
-      return;
-    }
+    let end = endPoint || destinationCoords;
 
     setIsCalculatingRoutes(true);
     setRouteError(null);
+
+    // Auto-resolve destination if text is provided but coords are not yet set
+    if (!end && destinationInput.trim()) {
+      const resolved = await hybridResolveLocation(
+        destinationInput,
+        start?.lat || currentLat || -22.9194,
+        start?.lng || currentLng || -42.8186
+      );
+      if (resolved) {
+        end = { lat: resolved.lat, lng: resolved.lng };
+        setDestinationCoords(end);
+        destTitle = destTitle || resolved.displayName;
+      }
+    }
+
+    // Auto-resolve origin if text is provided but coords are not yet set
+    if (!start && originInput.trim() && !isUsingGpsOrigin) {
+      const resolvedOrigin = await hybridResolveLocation(
+        originInput,
+        currentLat || -22.9194,
+        currentLng || -42.8186
+      );
+      if (resolvedOrigin) {
+        start = { lat: resolvedOrigin.lat, lng: resolvedOrigin.lng };
+        setOriginCoords(start);
+      }
+    }
+
+    if (!start || !end) {
+      setIsCalculatingRoutes(false);
+      setRouteError('Digite um local válido de partida e de destino para traçar a rota.');
+      return;
+    }
+
     stopLiveNavigation();
 
     try {
@@ -2049,15 +2165,29 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
 
                   {/* Origin Suggestions dropdown */}
                   {activeSuggestionField === 'origin' && originSuggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#161626] border border-[#2a2a3e] rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#141424] border border-[#2a2a44] rounded-xl shadow-2xl z-50 max-h-52 overflow-y-auto">
                       {originSuggestions.map((place, idx) => (
                         <div
                           key={idx}
                           onClick={() => handleSelectSuggestion(place, 'origin')}
-                          className="px-3 py-2 text-xs text-zinc-300 hover:bg-emerald-500/20 hover:text-emerald-200 cursor-pointer border-b border-[#222234] last:border-0 flex items-start gap-1.5"
+                          className="px-3 py-2 text-xs text-zinc-300 hover:bg-emerald-500/20 hover:text-emerald-200 cursor-pointer border-b border-[#202036] last:border-0 flex items-center justify-between gap-2"
                         >
-                          <MapPin size={12} className="text-emerald-400 shrink-0 mt-0.5" />
-                          <span className="line-clamp-2">{place.display_name}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <MapPin size={13} className="text-emerald-400 shrink-0" />
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-bold text-white truncate text-xs">
+                                {place.name || place.display_name.split(',')[0]}
+                              </span>
+                              <span className="text-[10px] text-zinc-400 truncate">
+                                {place.display_name}
+                              </span>
+                            </div>
+                          </div>
+                          {place.isOffline && (
+                            <span className="text-[8px] font-black uppercase bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30 shrink-0">
+                              OFFLINE
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2073,7 +2203,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
                     onFocus={() => setActiveSuggestionField('dest')}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        handleAiSmartSearch(destinationInput);
+                        handleCalculateAllRoutes(null, null, destinationInput);
                       }
                     }}
                     placeholder="Para onde vamos? (ex: Praia de Ponta Negra, Niterói, Posto BR...)"
@@ -2107,15 +2237,29 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
 
                   {/* Dest Suggestions dropdown */}
                   {activeSuggestionField === 'dest' && destSuggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#161626] border border-[#2a2a3e] rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#141424] border border-[#2a2a44] rounded-xl shadow-2xl z-50 max-h-52 overflow-y-auto">
                       {destSuggestions.map((place, idx) => (
                         <div
                           key={idx}
                           onClick={() => handleSelectSuggestion(place, 'dest')}
-                          className="px-3 py-2 text-xs text-zinc-300 hover:bg-red-500/20 hover:text-red-200 cursor-pointer border-b border-[#222234] last:border-0 flex items-start gap-1.5"
+                          className="px-3 py-2 text-xs text-zinc-300 hover:bg-red-500/20 hover:text-red-200 cursor-pointer border-b border-[#202036] last:border-0 flex items-center justify-between gap-2"
                         >
-                          <MapPin size={12} className="text-red-400 shrink-0 mt-0.5" />
-                          <span className="line-clamp-2">{place.display_name}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <MapPin size={13} className="text-red-400 shrink-0" />
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-bold text-white truncate text-xs">
+                                {place.name || place.display_name.split(',')[0]}
+                              </span>
+                              <span className="text-[10px] text-zinc-400 truncate">
+                                {place.display_name}
+                              </span>
+                            </div>
+                          </div>
+                          {place.isOffline && (
+                            <span className="text-[8px] font-black uppercase bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30 shrink-0">
+                              OFFLINE
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2288,8 +2432,25 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       )}
 
       {/* ─── MAIN LEAFLET MAP CONTAINER ─── */}
-      <div className="relative flex-1 w-full min-h-0">
-        <div ref={mapContainerRef} className="w-full h-full z-10" />
+      <div className="relative flex-1 w-full min-h-0 overflow-hidden bg-[#070908]">
+        {/* Map div with smooth rotation for Waze-style Heading-Up view */}
+        <div
+          ref={mapContainerRef}
+          className="w-full h-full z-10 origin-center transition-transform duration-500 ease-out"
+          style={
+            isLiveNavigating && isHeadingUpNavigation
+              ? {
+                  transform: `rotate(${-vehicleHeading}deg) scale(1.4)`,
+                  width: '100%',
+                  height: '100%',
+                }
+              : {
+                  transform: 'none',
+                  width: '100%',
+                  height: '100%',
+                }
+          }
+        />
 
         {/* Dynamic Auto-Reroute Realtime Badge */}
         {isRecalculatingRoute && (
@@ -2324,13 +2485,46 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
           </div>
         )}
 
-        {/* Offline Mode Indicator Badge on Map */}
-        {isOfflineModeActive && (
-          <div className="absolute top-3 right-14 z-20 bg-cyan-950/90 border border-cyan-400/50 rounded-xl px-2.5 py-1 backdrop-blur-md flex items-center gap-1.5 text-cyan-300 text-[10px] font-black shadow-xl">
-            <WifiOff size={12} className="text-cyan-400" />
-            <span>MODO OFFLINE (IndexedDB)</span>
-          </div>
-        )}
+        {/* Top Right Floating Controls: Compass Mode & Offline Badge */}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+          {/* Compass / Orientation Mode Toggle (Waze vs North-Up) */}
+          <button
+            onClick={() => setIsHeadingUpNavigation(!isHeadingUpNavigation)}
+            className={`px-2.5 py-1.5 rounded-xl border shadow-2xl backdrop-blur-md flex items-center gap-1.5 text-xs font-black transition-all active:scale-95 ${
+              isHeadingUpNavigation
+                ? 'bg-emerald-500/25 text-emerald-300 border-emerald-400/60 shadow-emerald-500/20'
+                : 'bg-[#10101c]/90 text-zinc-300 border-[#2a2a3e] hover:bg-[#18182c]'
+            }`}
+            title={
+              isHeadingUpNavigation
+                ? 'Modo Waze: Direção Para Cima (Clique para Modo Norte Fixo)'
+                : 'Modo Norte Fixo (Clique para Modo Waze Direção Para Cima)'
+            }
+          >
+            <div
+              style={{
+                transform: `rotate(${isHeadingUpNavigation ? -vehicleHeading : 0}deg)`,
+                transition: 'transform 0.4s ease-out',
+              }}
+            >
+              <Compass
+                size={16}
+                className={isHeadingUpNavigation ? 'text-emerald-400 animate-pulse' : 'text-zinc-400'}
+              />
+            </div>
+            <span className="text-[10px] font-black">
+              {isHeadingUpNavigation ? 'DIREÇÃO (WAZE)' : 'NORTE FIXO'}
+            </span>
+          </button>
+
+          {/* Offline Mode Indicator Badge on Map */}
+          {isOfflineModeActive && (
+            <div className="bg-cyan-950/90 border border-cyan-400/50 rounded-xl px-2.5 py-1 backdrop-blur-md flex items-center gap-1.5 text-cyan-300 text-[10px] font-black shadow-xl">
+              <WifiOff size={12} className="text-cyan-400" />
+              <span className="hidden sm:inline">OFFLINE</span>
+            </div>
+          )}
+        </div>
 
         {/* Recenter floating button */}
         {!autoFollowCar && (
