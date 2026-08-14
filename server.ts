@@ -122,14 +122,14 @@ async function startServer() {
 
       const fuelTypeLabel = carConfig?.currentFuel === 'ethanol' ? 'Etanol' : 'Gasolina';
       const avgKmPerL = carConfig?.currentFuel === 'ethanol' ? (carConfig?.avgConsumptionEthanol || 8.9) : (carConfig?.avgConsumptionGasoline || 12.6);
-      const fuelLiters = ((carConfig?.tankCapacity || 50) * (carConfig?.fuelLevel || 25)) / 100;
+      const fuelLiters = ((carConfig?.tankCapacity || 50) * (carConfig?.fuelLevel || 43)) / 100;
       const startLat = originLat || currentLat || -22.9194;
       const startLng = originLng || currentLng || -42.8186;
 
       const systemPrompt = `Você é o Copiloto de Navegação Inteligente e Otimizador de Rotas Econômicas (Eco-Route) do Renault Clio 1.0 16V Hi-Flex integrado ao OpenStreetMap (estilo Google Maps com foco em economia de combustível).
 Ponto de Partida/Origem: ${originQuery || `Coordenadas atuais (Lat: ${startLat}, Lng: ${startLng} - Região de Maricá / RJ)`}.
 Destino Solicitado pelo motorista: "${userQuery}".
-Veículo atual: Renault Clio (Tanque: ${carConfig?.tankCapacity || 50}L, Nível: ${carConfig?.fuelLevel?.toFixed(1) || 25}% = ~${fuelLiters.toFixed(1)} Litros de ${fuelTypeLabel}, Consumo médio: ${avgKmPerL} km/L).
+Veículo atual: Renault Clio (Tanque: ${carConfig?.tankCapacity || 50}L, Nível: ${carConfig?.fuelLevel?.toFixed(1) || 43}% = ~${fuelLiters.toFixed(1)} Litros de ${fuelTypeLabel}, Consumo médio: ${avgKmPerL} km/L).
 
 Sua tarefa:
 1. Identificar o local de destino e suas coordenadas precisas (latitude e longitude) para traçado rodoviário no OpenStreetMap.

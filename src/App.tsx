@@ -79,11 +79,11 @@ export default function App() {
         cfg.totalOdometerKm = 150427.0;
         localStorage.setItem('odometer_sync_150427_v1', 'true');
       }
-      // Force update fuel level to 25.0% (12.5 Litros no 2º traço do Clio) based on latest photo
-      if (localStorage.getItem('fuel_sync_clio_25pct_v2') !== 'true') {
-        cfg.fuelLevel = 25.0;
-        cfg.currentFuel = 'ethanol';
-        localStorage.setItem('fuel_sync_clio_25pct_v2', 'true');
+      // Force update fuel level to 43.0% (21.5 Litros no 4º traço do Clio) and fuel to Gasoline based on latest photo
+      if (localStorage.getItem('fuel_sync_clio_gasoline_43pct_v3') !== 'true') {
+        cfg.fuelLevel = 43.0;
+        cfg.currentFuel = 'gasoline';
+        localStorage.setItem('fuel_sync_clio_gasoline_43pct_v3', 'true');
       }
       return cfg;
     }
@@ -91,8 +91,8 @@ export default function App() {
       model: 'Renault Clio',
       details: '2010 1.0 16V Hi-Flex',
       tankCapacity: 50,
-      currentFuel: 'ethanol',
-      fuelLevel: 25.0, // 12.5 Litros (2º traço no painel do Clio conforme foto atualizada)
+      currentFuel: 'gasoline',
+      fuelLevel: 43.0, // 21.5 Litros (4º traço no painel do Clio conforme foto de abastecimento)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
       totalOdometerKm: 150427.0,
