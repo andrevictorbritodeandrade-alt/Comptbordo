@@ -39,6 +39,43 @@ export interface GpsState {
   statusText: string;
   sourceText: string;
   accuracy?: number;
+  latitude?: number;
+  longitude?: number;
+  heading?: number;
+  altitude?: number;
+}
+
+export interface RoutePoint {
+  lat: number;
+  lng: number;
+}
+
+export interface RouteStep {
+  instruction: string;
+  distance: number;
+  name: string;
+  type?: string;
+  modifier?: string;
+}
+
+export interface NavigationRoute {
+  id: string;
+  routeType: 'eco' | 'fastest' | 'shortest' | 'alternative';
+  routeName: string;
+  originName: string;
+  destinationName: string;
+  distanceKm: number;
+  durationMin: number;
+  coordinates: [number, number][];
+  steps?: RouteStep[];
+  litersNeeded: number;
+  costEstimatedBrl: number;
+  ecoScore: number; // 0 - 100
+  fuelSavingsLiters?: number; // Quanto economiza vs rota menos eficiente
+  costSavingsBrl?: number;
+  fuelSufficiency: string;
+  isMostEconomical?: boolean;
+  aiComment?: string;
 }
 
 export type OperatingMode = 'pending' | 'real' | 'simulated';

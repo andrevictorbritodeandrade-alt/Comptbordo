@@ -38,3 +38,52 @@ input[type="range"] {
 ::-webkit-scrollbar-thumb:hover {
   background: #c19a6b;
 }
+
+/* OpenStreetMap Automotive Theme: Green Territory, Gray Roads, Blue Ocean */
+.leaflet-container {
+  background-color: #0d1b10 !important;
+  font-family: 'Outfit', sans-serif !important;
+}
+
+/* Custom Eco-Cockpit Filter: Green Land, Gray Streets, Blue Sea */
+.osm-eco-filter .leaflet-tile-pane {
+  filter: hue-rotate(80deg) saturate(1.3) contrast(1.1) brightness(0.9);
+}
+
+.osm-cockpit-filter .leaflet-tile-pane {
+  filter: contrast(1.2) brightness(0.85) saturate(1.2);
+}
+
+.leaflet-popup-content-wrapper {
+  background-color: #0f0f18 !important;
+  color: #ffffff !important;
+  border: 1px solid #2a2a3e !important;
+  border-radius: 14px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7) !important;
+}
+
+.leaflet-popup-tip {
+  background-color: #0f0f18 !important;
+  border: 1px solid #2a2a3e !important;
+}
+
+/* Animated pulse for GPS Car Marker */
+@keyframes car-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(193, 154, 107, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 12px rgba(193, 154, 107, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(193, 154, 107, 0);
+  }
+}
+
+.gps-marker-pulse {
+  animation: car-pulse 2s infinite;
+}
+

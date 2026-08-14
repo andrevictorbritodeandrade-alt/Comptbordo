@@ -37,6 +37,7 @@ import { FuelPhotoScannerModal } from './components/FuelPhotoScannerModal';
 import { QuickRefuelModal } from './components/QuickRefuelModal';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { SplitDashboardView } from './components/SplitDashboardView';
+import { OpenStreetMapViewer } from './components/OpenStreetMapViewer';
 import { CarConfig, TripsState, TripKey, OperatingMode, GpsState } from './types';
 import { onSnapshot, setDoc } from "firebase/firestore";
 import { carDocRef } from "./firebase";
@@ -78,11 +79,11 @@ export default function App() {
         cfg.totalOdometerKm = 150427.0;
         localStorage.setItem('odometer_sync_150427_v1', 'true');
       }
-      // Force update fuel level to 42.0% (~21 Litros no 4º traço do Clio) and fuel type to Etanol
-      if (localStorage.getItem('fuel_override_ethanol_150427_v1') !== 'true') {
-        cfg.fuelLevel = 42.0;
+      // Force update fuel level to 25.0% (12.5 Litros no 2º traço do Clio) based on latest photo
+      if (localStorage.getItem('fuel_sync_clio_25pct_v2') !== 'true') {
+        cfg.fuelLevel = 25.0;
         cfg.currentFuel = 'ethanol';
-        localStorage.setItem('fuel_override_ethanol_150427_v1', 'true');
+        localStorage.setItem('fuel_sync_clio_25pct_v2', 'true');
       }
       return cfg;
     }
@@ -91,7 +92,7 @@ export default function App() {
       details: '2010 1.0 16V Hi-Flex',
       tankCapacity: 50,
       currentFuel: 'ethanol',
-      fuelLevel: 42.0, // ~21.0 Litros (4º traço no painel do Clio conforme foto)
+      fuelLevel: 25.0, // 12.5 Litros (2º traço no painel do Clio conforme foto atualizada)
       avgConsumptionGasoline: 12.6,
       avgConsumptionEthanol: 8.9,
       totalOdometerKm: 150427.0,
@@ -114,12 +115,45 @@ export default function App() {
   const [showPhotoScanner, setShowPhotoScanner] = useState<boolean>(false);
   const [showQuickRefuelModal, setShowQuickRefuelModal] = useState<boolean>(false);
   const [showTelemetryModal, setShowTelemetryModal] = useState<boolean>(false);
+  const [showOpenStreetMapModal, setShowOpenStreetMapModal] = useState<boolean>(false);
+  const [breadcrumbTrail, setBreadcrumbTrail] = useState<[number, number][]>([]);
   const [showCitySearchModal, setShowCitySearchModal] = useState<boolean>(false);
   const [citySearchInput, setCitySearchInput] = useState<string>('');
   const [citySearchLoading, setCitySearchLoading] = useState<boolean>(false);
   const [citySearchError, setCitySearchError] = useState<string | null>(null);
   const [gpsDenied, setGpsDenied] = useState<boolean>(false);
   const [hudMode, setHudMode] = useState<boolean>(false);
+
+  const handleRequestRealGps = () => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          setCoords({ latitude: lat, longitude: lon });
+          setBreadcrumbTrail((prev) => (prev.length === 0 ? [[lat, lon]] : [...prev, [lat, lon]]));
+          setMode('real');
+          setGpsDenied(false);
+          setGpsState({
+            active: true,
+            statusText: 'GPS Ativo',
+            sourceText: `📍 GPS Ativo • Precisão: ${Math.round(pos.coords.accuracy || 10)}m`,
+            latitude: lat,
+            longitude: lon,
+            accuracy: pos.coords.accuracy,
+          });
+        },
+        (err) => {
+          console.warn('GPS não concedido:', err);
+          setGpsDenied(true);
+          setMode('real');
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    } else {
+      setMode('real');
+    }
+  };
   
   // Split Screen Mode State for Android Multimedia
   const [userSplitModeOverride, setUserSplitModeOverride] = useState<boolean | null>(null);
@@ -466,10 +500,10 @@ export default function App() {
                 cfg.totalOdometerKm = 150427.0;
                 localStorage.setItem('odometer_sync_150427_v1', 'true');
               }
-              if (localStorage.getItem('fuel_override_ethanol_150427_v1') !== 'true') {
-                cfg.fuelLevel = 42.0;
+              if (localStorage.getItem('fuel_sync_clio_25pct_v2') !== 'true') {
+                cfg.fuelLevel = 25.0;
                 cfg.currentFuel = 'ethanol';
-                localStorage.setItem('fuel_override_ethanol_150427_v1', 'true');
+                localStorage.setItem('fuel_sync_clio_25pct_v2', 'true');
               }
               setCarConfig(cfg);
             }
@@ -756,6 +790,21 @@ export default function App() {
           setSpeed(next);
           return next;
         });
+
+        // Simulate slight movement along road in Maricá / RJ
+        setCoords((prev) => {
+          const baseLat = prev?.latitude || -22.9194;
+          const baseLng = prev?.longitude || -42.8186;
+          const nextLat = baseLat + 0.00015 * (Math.sin(Date.now() / 8000));
+          const nextLng = baseLng + 0.00025 * (Math.cos(Date.now() / 8000));
+          
+          setBreadcrumbTrail((trail) => {
+            const updated = [...trail, [nextLat, nextLng] as [number, number]];
+            return updated.length > 500 ? updated.slice(updated.length - 500) : updated;
+          });
+
+          return { latitude: nextLat, longitude: nextLng };
+        });
       }, 1500);
     } else if (mode === 'real') {
       if (!('geolocation' in navigator)) {
@@ -824,9 +873,24 @@ export default function App() {
           }
 
           setSpeed(currentSpeedKmh);
+          const currentLat = position.coords.latitude;
+          const currentLng = position.coords.longitude;
+
           setCoords({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
+            latitude: currentLat,
+            longitude: currentLng,
+          });
+
+          // Append to breadcrumb trail if car has moved >= 3 meters
+          setBreadcrumbTrail((prev) => {
+            if (prev.length === 0) return [[currentLat, currentLng]];
+            const last = prev[prev.length - 1];
+            const distM = calculateDistance(last[0], last[1], currentLat, currentLng);
+            if (distM >= 3.0) {
+              const updated = [...prev, [currentLat, currentLng] as [number, number]];
+              return updated.length > 500 ? updated.slice(updated.length - 500) : updated;
+            }
+            return prev;
           });
 
           // Accumulate background/foreground mileage and fuel directly via GPS ticks
@@ -1322,13 +1386,23 @@ export default function App() {
               />
             </div>
 
+            {/* OpenStreetMap GPS & AI Routes Button */}
+            <button
+              onClick={() => setShowOpenStreetMapModal(true)}
+              className="p-1 sm:p-1.5 bg-[#0e1713] hover:bg-[#14261c] border border-emerald-500/50 text-emerald-300 rounded-xl transition-all shadow-md flex items-center gap-1.5 px-2"
+              title="Abrir Mapa OpenStreetMap em Tempo Real, Rotas e IA"
+            >
+              <Compass size={13} className="text-emerald-400 animate-pulse" />
+              <span className="hidden lg:inline text-[10px] font-black tracking-wider uppercase text-emerald-300">MAPA GPS</span>
+            </button>
+
             {/* Mode Switcher */}
             <button
               onClick={() => setMode('pending')}
               className="p-1 sm:p-1.5 bg-[#14141e] hover:bg-[#1f1f2c] border border-[#2a2a3a] text-zinc-200 rounded-xl transition-colors"
               title={mode === 'real' ? 'GPS Real' : mode === 'simulated' ? 'Simulação' : 'Selecionar Modo'}
             >
-              <Compass size={13} />
+              <Satellite size={13} />
             </button>
             
             {/* Quick AI Photo */}
@@ -1560,6 +1634,30 @@ export default function App() {
                 <span>Ver Detalhes 📊</span>
               </div>
             </div>
+
+            {/* OpenStreetMap Real-Time & AI Navigation Launcher */}
+            <div
+              onClick={() => setShowOpenStreetMapModal(true)}
+              className="bg-[#09150f] hover:bg-[#0f2118] border border-emerald-500/40 hover:border-emerald-400/80 p-1.5 rounded-xl flex items-center justify-between cursor-pointer transition-all shrink-0 shadow-md"
+              title="Abrir Mapa com Dados Abertos OpenStreetMap, Traçar Rota & IA"
+            >
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-md bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <Compass size={12} />
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-black uppercase text-emerald-300">OPENSTREETMAP • ROTAS IA</span>
+                    <span className="text-[8px] bg-emerald-500/30 text-emerald-300 font-bold px-1 rounded">ABERTO</span>
+                  </div>
+                  <span className="text-[8px] text-zinc-400">Território verde • Ruas cinza • Mar azul</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 text-[9px] font-black uppercase text-emerald-300 bg-[#06140b] px-2 py-0.5 rounded border border-emerald-500/40">
+                <span>Ver Mapa 🗺️</span>
+              </div>
+            </div>
           </div>
 
           {/* Column 3: Renault Clio Fuel Gauge & Tank Info (Col 3) */}
@@ -1689,6 +1787,63 @@ export default function App() {
                 currentSpeed={speed}
                 avgSpeed={Number(tripAvgSpeed) || 0}
                 speedLimit={speedLimit}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OpenStreetMap Fullscreen Modal with Custom Eco Colors & Gemini AI Navigation */}
+      {showOpenStreetMapModal && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-1 sm:p-3 backdrop-blur-md">
+          <div className="bg-[#090e0c] border border-emerald-500/40 rounded-3xl p-2 sm:p-4 w-full max-w-5xl h-[92vh] shadow-2xl relative flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#15231c] shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-400">
+                  <Compass size={18} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
+                      OpenStreetMap • Navegação Aberta
+                    </h3>
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-500/30">
+                      ECO PALETTE (Verde / Cinza / Azul)
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400">
+                    Dados Abertos OSM • Traçado de Rotas OSRM • Assistente IA para Destinos & Consumo
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {!gpsState.active && (
+                  <button
+                    onClick={handleRequestRealGps}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-black font-black text-xs px-3 py-1.5 rounded-xl uppercase flex items-center gap-1.5 transition-transform active:scale-95"
+                  >
+                    <Navigation size={13} /> Ativar Meu GPS
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowOpenStreetMapModal(false)}
+                  className="text-zinc-400 hover:text-white p-2 bg-[#14201a] rounded-full transition-colors"
+                  title="Fechar Mapa"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-0 w-full rounded-2xl overflow-hidden border border-[#1a2d24]">
+              <OpenStreetMapViewer
+                currentLat={coords?.latitude || -22.9194}
+                currentLng={coords?.longitude || -42.8186}
+                speed={speed}
+                carConfig={carConfig}
+                breadcrumbTrail={breadcrumbTrail}
+                onRequestGps={handleRequestRealGps}
               />
             </div>
           </div>
