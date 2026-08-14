@@ -78,4 +78,16 @@ export interface NavigationRoute {
   aiComment?: string;
 }
 
+export interface FavoriteDestination {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  icon?: 'home' | 'work' | 'gas' | 'shopping' | 'gym' | 'beach' | 'heart' | 'star' | 'pin';
+  category?: string;
+  createdAt: number;
+}
+
 export type OperatingMode = 'pending' | 'real' | 'simulated';
+

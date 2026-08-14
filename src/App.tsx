@@ -1793,50 +1793,11 @@ export default function App() {
         </div>
       )}
 
-      {/* OpenStreetMap Fullscreen Modal with Custom Eco Colors & Gemini AI Navigation */}
+      {/* OpenStreetMap Fullscreen Modal with Direct Search Cockpit */}
       {showOpenStreetMapModal && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-1 sm:p-3 backdrop-blur-md">
-          <div className="bg-[#090e0c] border border-emerald-500/40 rounded-3xl p-2 sm:p-4 w-full max-w-5xl h-[92vh] shadow-2xl relative flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#15231c] shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-400">
-                  <Compass size={18} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
-                      OpenStreetMap • Navegação Aberta
-                    </h3>
-                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-500/30">
-                      ECO PALETTE (Verde / Cinza / Azul)
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-zinc-400">
-                    Dados Abertos OSM • Traçado de Rotas OSRM • Assistente IA para Destinos & Consumo
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {!gpsState.active && (
-                  <button
-                    onClick={handleRequestRealGps}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-black font-black text-xs px-3 py-1.5 rounded-xl uppercase flex items-center gap-1.5 transition-transform active:scale-95"
-                  >
-                    <Navigation size={13} /> Ativar Meu GPS
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowOpenStreetMapModal(false)}
-                  className="text-zinc-400 hover:text-white p-2 bg-[#14201a] rounded-full transition-colors"
-                  title="Fechar Mapa"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 min-h-0 w-full rounded-2xl overflow-hidden border border-[#1a2d24]">
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-0 sm:p-2 backdrop-blur-md">
+          <div className="bg-[#090e0c] border border-emerald-500/40 sm:rounded-3xl p-0 w-full max-w-6xl h-full sm:h-[95vh] shadow-2xl relative flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 w-full h-full">
               <OpenStreetMapViewer
                 currentLat={coords?.latitude || -22.9194}
                 currentLng={coords?.longitude || -42.8186}
@@ -1844,6 +1805,9 @@ export default function App() {
                 carConfig={carConfig}
                 breadcrumbTrail={breadcrumbTrail}
                 onRequestGps={handleRequestRealGps}
+                gpsActive={gpsState.active}
+                gpsAccuracy={coords?.accuracy}
+                onClose={() => setShowOpenStreetMapModal(false)}
               />
             </div>
           </div>
