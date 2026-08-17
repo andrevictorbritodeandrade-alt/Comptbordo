@@ -83,6 +83,7 @@ import {
 import {
   roadAlertsEngine,
   DEFAULT_ROAD_HAZARDS,
+  wazeAudio,
 } from '../utils/roadAlertsEngine';
 import {
   searchOfflineGeoDb,
@@ -537,8 +538,8 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     } else if (theme === 'standard') {
       template = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     } else {
-      // Default 'eco': Crisp Waze/Google Maps style with detailed roads and landmarks
-      template = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      // High-contrast Voyager for Waze-like readability
+      template = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png';
     }
 
     return L.tileLayer(template, {
@@ -725,19 +726,16 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     const rotation = Math.round(headingDeg);
     if (navigating) {
       const html = `
-        <div class="relative flex items-center justify-center pointer-events-none" style="transform: rotate(${rotation}deg); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);">
-          <!-- Ground Radar Halo (Waze style) -->
-          <div class="w-16 h-16 rounded-full bg-cyan-400/25 border border-cyan-400/40 flex items-center justify-center absolute -inset-1 pointer-events-none animate-pulse">
-            <div class="w-9 h-9 rounded-full bg-cyan-500/25"></div>
-          </div>
-          <!-- 3D Cyan Triangular Arrow Cursor (Authentic Waze Vehicle) -->
-          <div class="relative drop-shadow-[0_4px_12px_rgba(0,0,0,0.7)]" style="margin-bottom: 2px;">
-            <svg width="44" height="44" viewBox="0 0 40 40" fill="none">
-              <!-- Shadow base -->
-              <polygon points="20 4 37 35 20 28 3 35" fill="#00b4d8" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>
-              <!-- Vibrant Cyan Face -->
-              <polygon points="20 4 20 28 3 35" fill="#00e5ff"/>
-              <polygon points="20 4 37 35 20 28" fill="#00c4e8"/>
+        <div class="relative flex items-center justify-center pointer-events-none" style="transform: rotate(${rotation}deg); transition: transform 0.2s linear;">
+          <!-- Vibrant 3D Arrow (Waze Style) -->
+          <div class="relative drop-shadow-[0_6px_12px_rgba(0,0,0,0.5)]">
+            <svg width="50" height="50" viewBox="0 0 50 50" fill="none">
+              <!-- Background / Border -->
+              <path d="M25 4L44 42L25 34L6 42L25 4Z" fill="white" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"/>
+              <!-- Main Body -->
+              <path d="M25 7L41 39L25 31L9 39L25 7Z" fill="#3b82f6"/>
+              <!-- 3D Shading -->
+              <path d="M25 7L25 31L9 39L25 7Z" fill="#1d4ed8"/>
             </svg>
           </div>
         </div>
@@ -1601,10 +1599,19 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     if (isAutoReroutingRef.current) return;
     isAutoReroutingRef.current = true;
     setIsRecalculatingRoute(true);
-    lastRerouteTimeRef.current = Date.now();
+    const now = Date.now();
+    const timeSinceLastReroute = now - lastRerouteTimeRef.current;
+    
+    lastRerouteTimeRef.current = now;
     offRouteCountRef.current = 0;
 
-    roadAlertsEngine.speak('Recalculando nova rota...');
+    // Reduced frequency of reroute speech (Cooldown of 20 seconds for the voice)
+    if (timeSinceLastReroute > 20000) {
+      roadAlertsEngine.speak('Percurso atualizado. Recalculando rota...');
+    } else {
+      // Just a chime if it's too frequent
+      wazeAudio.playHazardChime();
+    }
 
     try {
       const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${currentPos.lng},${currentPos.lat};${targetDest.lng},${targetDest.lat}?overview=full&geometries=geojson&steps=true&alternatives=false`;
@@ -1726,14 +1733,15 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       return;
     }
 
-    // 2. OFF-ROUTE DETECTION & 1-2 SECONDS AUTO REROUTE
+    // 2. OFF-ROUTE DETECTION & 5-8 SECONDS AUTO REROUTE (Waze-style stability)
     const distToRoute = minDistanceToRouteMeters(currentPos, route.coordinates);
     const now = Date.now();
 
-    if (distToRoute > 42) {
+    // Threshold increased to 80m to account for GPS noise and parallel streets
+    if (distToRoute > 80) {
       offRouteCountRef.current += 1;
-      // If off route for 2 consecutive ticks (approx 1-2 seconds) and hasn't rerouted in the last 3.5s
-      if (offRouteCountRef.current >= 2 && now - lastRerouteTimeRef.current > 3500) {
+      // If off route for 4 consecutive ticks (approx 4-6 seconds) and hasn't rerouted in the last 8s
+      if (offRouteCountRef.current >= 4 && now - lastRerouteTimeRef.current > 8000) {
         handleAutoRerouteLive(currentPos, dest, route.destinationName);
       }
     } else {
@@ -1741,7 +1749,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     }
 
     // 3. PROGRESS UPDATE & PRECISE STEP TRACKING ALONG THE ROUTE (When driving normally)
-    if (distToRoute <= 42) {
+    if (distToRoute <= 80) {
       // Find closest point index in route coords to calculate remaining fraction
       let closestIdx = 0;
       let minPtDist = Infinity;
@@ -1855,17 +1863,17 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       let dashArray: string | undefined = '4, 8';
 
       if (isSelected) {
-        // Waze Signature Royal Purple
-        color = '#7c3aed';
-        weight = 8;
-        opacity = 0.98;
+        // Waze Signature Royal Purple with high-contrast white casing
+        color = '#9333ea'; 
+        weight = 10;
+        opacity = 1;
         dashArray = undefined;
 
-        // Background shadow line for Waze road depth
+        // White Casing (Outer border) for that Waze-app look
         const borderPoly = L.polyline(route.coordinates, {
-          color: '#3b0764',
-          weight: 12,
-          opacity: 0.6,
+          color: '#ffffff',
+          weight: 15,
+          opacity: 0.9,
           lineCap: 'round',
           lineJoin: 'round',
         }).addTo(map);
@@ -2809,9 +2817,9 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
           ref={mapContainerRef}
           className="w-full h-full z-10 will-change-transform"
           style={{
-            transform: isLiveNavigating && isHeadingUpNavigation ? `rotate(${-vehicleHeading}deg) scale(1.25)` : 'none',
+            transform: isLiveNavigating && isHeadingUpNavigation ? `rotate(${-vehicleHeading}deg) scale(2.8)` : 'none',
             transformOrigin: '50% 50%',
-            transition: 'transform 0.2s linear',
+            transition: 'transform 0.25s linear',
           }}
         />
 
