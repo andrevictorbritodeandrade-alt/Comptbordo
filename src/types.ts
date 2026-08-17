@@ -56,6 +56,7 @@ export interface RouteStep {
   name: string;
   type?: string;
   modifier?: string;
+  location?: [number, number]; // [lat, lng] coordinates of the maneuver
 }
 
 export interface NavigationRoute {

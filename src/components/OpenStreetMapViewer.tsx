@@ -812,9 +812,10 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
 
     if (autoFollowCar) {
       if (isLiveNavigating) {
-        mapInstanceRef.current.setView([lat, lng], 17, { animate: true, duration: 0.4 });
+        // Fast 0ms instantaneous pan to prevent any lag or animation queue blocking
+        mapInstanceRef.current.panTo([lat, lng], { animate: false });
       } else {
-        mapInstanceRef.current.panTo([lat, lng], { animate: true, duration: 0.4 });
+        mapInstanceRef.current.panTo([lat, lng], { animate: true, duration: 0.25 });
       }
     }
   }, [
@@ -1288,9 +1289,27 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       const costEstimatedBrl = Number((litersNeeded * fuelPricePerLiter).toFixed(2));
 
       const steps: RouteStep[] = [
-        { instruction: `Siga pela via asfaltada principal (${cfg.name})`, distance: distM * 0.4, name: 'Rodovia Asfaltada', type: 'straight' },
-        { instruction: 'Mantenha-se na pista (Evitando balsas e terra)', distance: distM * 0.4, name: 'Via Principal', type: 'straight' },
-        { instruction: 'Você está chegando ao seu destino', distance: distM * 0.2, name: destTitle || 'Destino', type: 'arrive' },
+        {
+          instruction: `Siga pela via asfaltada principal (${cfg.name})`,
+          distance: distM * 0.4,
+          name: 'Rodovia Asfaltada',
+          type: 'straight',
+          location: coords[Math.floor(coords.length * 0.4)],
+        },
+        {
+          instruction: 'Mantenha-se na pista',
+          distance: distM * 0.4,
+          name: 'Via Principal',
+          type: 'straight',
+          location: coords[Math.floor(coords.length * 0.8)],
+        },
+        {
+          instruction: 'Você está chegando ao seu destino',
+          distance: distM * 0.2,
+          name: destTitle || 'Destino',
+          type: 'arrive',
+          location: [end.lat, end.lng],
+        },
       ];
 
       return {
@@ -1450,9 +1469,10 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
         const routeSteps: RouteStep[] = (r.legs?.[0]?.steps || []).map((s: any) => ({
           instruction: formatManeuver(s.maneuver),
           distance: s.distance,
-          name: s.name || 'Via Principal Asfaltada',
+          name: s.name || 'Via Principal',
           type: s.maneuver?.type,
           modifier: s.maneuver?.modifier,
+          location: s.maneuver?.location ? [s.maneuver.location[1], s.maneuver.location[0]] : undefined,
         }));
 
         return {
@@ -1627,6 +1647,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
           name: s.name || 'Via Principal',
           type: s.maneuver?.type,
           modifier: s.maneuver?.modifier,
+          location: s.maneuver?.location ? [s.maneuver.location[1], s.maneuver.location[0]] : undefined,
         }));
 
         newRoute = {
@@ -1719,7 +1740,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       offRouteCountRef.current = 0;
     }
 
-    // 3. PROGRESS UPDATE ALONG THE ROUTE (When driving normally)
+    // 3. PROGRESS UPDATE & PRECISE STEP TRACKING ALONG THE ROUTE (When driving normally)
     if (distToRoute <= 42) {
       // Find closest point index in route coords to calculate remaining fraction
       let closestIdx = 0;
@@ -1739,18 +1760,51 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       setLiveRemainingDistanceKm(remKm);
       setLiveRemainingDurationMin(remMin);
 
-      const stepCount = route.steps?.length || 1;
-      const estimatedStepIdx = Math.min(stepCount - 1, Math.floor((closestIdx / totalCoords) * stepCount));
-      setCurrentStepIndex(estimatedStepIdx);
+      const steps = route.steps || [];
+      if (steps.length > 0) {
+        let activeIdx = currentStepIndex;
 
-      const stepMeters = Math.max(25, Math.round((fractionRemaining * (route.distanceKm * 1000)) / stepCount));
-      setDistanceToNextStepMeters(stepMeters);
+        // Check if driver has reached or passed the upcoming step maneuver point
+        const activeManeuverLoc = steps[activeIdx]?.location;
+        if (activeManeuverLoc) {
+          const distToCurrent = computeDistanceMeters([currentPos.lat, currentPos.lng], activeManeuverLoc);
+          if (distToCurrent < 25 && activeIdx < steps.length - 1) {
+            activeIdx += 1;
+            setCurrentStepIndex(activeIdx);
+          }
+        } else {
+          // If no explicit location, calculate proportional index along route
+          const estIdx = Math.min(steps.length - 1, Math.floor((closestIdx / totalCoords) * steps.length));
+          if (estIdx > activeIdx) {
+            activeIdx = estIdx;
+            setCurrentStepIndex(activeIdx);
+          }
+        }
 
-      if (estimatedStepIdx !== lastSpokenStepIndexRef.current && route.steps?.[estimatedStepIdx]) {
-        lastSpokenStepIndexRef.current = estimatedStepIdx;
-        const currentInst = route.steps[estimatedStepIdx].instruction;
-        const street = route.steps[estimatedStepIdx].name;
-        roadAlertsEngine.speak(`Em ${stepMeters} metros, ${currentInst} ${street ? `na ${street}` : ''}`);
+        const currentStepObj = steps[activeIdx] || steps[0];
+        let distanceToManeuver = 0;
+
+        if (currentStepObj.location) {
+          distanceToManeuver = computeDistanceMeters([currentPos.lat, currentPos.lng], currentStepObj.location);
+        } else {
+          distanceToManeuver = Math.round(currentStepObj.distance * fractionRemaining);
+        }
+
+        const cleanStepMeters = Math.max(10, Math.round(distanceToManeuver));
+        setDistanceToNextStepMeters(cleanStepMeters);
+
+        // Voice and Visual Synchronized Announcement
+        if (activeIdx !== lastSpokenStepIndexRef.current) {
+          lastSpokenStepIndexRef.current = activeIdx;
+          const currentInst = currentStepObj.instruction;
+          const street = currentStepObj.name && currentStepObj.name !== 'Via Principal' ? `na ${currentStepObj.name}` : '';
+          
+          if (cleanStepMeters > 50) {
+            roadAlertsEngine.speak(`Em ${cleanStepMeters} metros, ${currentInst} ${street}`);
+          } else {
+            roadAlertsEngine.speak(`${currentInst} ${street}`);
+          }
+        }
       }
     }
   }, [driverPos, isLiveNavigating, destinationCoords, selectedRouteId, isSimulatingDrive]);
@@ -2111,18 +2165,45 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
         setLiveRemainingDistanceKm(remKm);
         setLiveRemainingDurationMin(remMin);
 
-        const stepCount = route.steps?.length || 1;
-        const estimatedStepIdx = Math.min(stepCount - 1, Math.floor(currentIndex / (totalCoords / stepCount)));
-        setCurrentStepIndex(estimatedStepIdx);
+        const steps = route.steps || [];
+        if (steps.length > 0) {
+          let activeIdx = currentStepIndex;
+          const activeManeuver = steps[activeIdx]?.location;
+          if (activeManeuver) {
+            const dMan = computeDistanceMeters([nextPt[0], nextPt[1]], activeManeuver);
+            if (dMan < 25 && activeIdx < steps.length - 1) {
+              activeIdx += 1;
+              setCurrentStepIndex(activeIdx);
+            }
+          } else {
+            const estIdx = Math.min(steps.length - 1, Math.floor((currentIndex / totalCoords) * steps.length));
+            if (estIdx > activeIdx) {
+              activeIdx = estIdx;
+              setCurrentStepIndex(activeIdx);
+            }
+          }
 
-        const stepMeters = Math.max(30, Math.round((fractionRemaining * (route.distanceKm * 1000)) / stepCount));
-        setDistanceToNextStepMeters(stepMeters);
+          const currentStepObj = steps[activeIdx] || steps[0];
+          let distToManeuver = 0;
+          if (currentStepObj.location) {
+            distToManeuver = computeDistanceMeters([nextPt[0], nextPt[1]], currentStepObj.location);
+          } else {
+            distToManeuver = Math.round(currentStepObj.distance * fractionRemaining);
+          }
 
-        if (estimatedStepIdx !== lastSpokenStepIndexRef.current && route.steps?.[estimatedStepIdx]) {
-          lastSpokenStepIndexRef.current = estimatedStepIdx;
-          const currentInst = route.steps[estimatedStepIdx].instruction;
-          const street = route.steps[estimatedStepIdx].name;
-          roadAlertsEngine.speak(`Em ${stepMeters} metros, ${currentInst} ${street ? `na ${street}` : ''}`);
+          const stepMeters = Math.max(10, Math.round(distToManeuver));
+          setDistanceToNextStepMeters(stepMeters);
+
+          if (activeIdx !== lastSpokenStepIndexRef.current) {
+            lastSpokenStepIndexRef.current = activeIdx;
+            const currentInst = currentStepObj.instruction;
+            const street = currentStepObj.name && currentStepObj.name !== 'Via Principal' ? `na ${currentStepObj.name}` : '';
+            if (stepMeters > 50) {
+              roadAlertsEngine.speak(`Em ${stepMeters} metros, ${currentInst} ${street}`);
+            } else {
+              roadAlertsEngine.speak(`${currentInst} ${street}`);
+            }
+          }
         }
       }, 1200);
     }
@@ -2723,10 +2804,15 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
 
       {/* ─── MAIN LEAFLET MAP CONTAINER ─── */}
       <div className="relative flex-1 w-full min-h-0 overflow-hidden bg-[#e8ecef]">
-        {/* Map div (Clean, unclipped, full viewport Leaflet container) */}
+        {/* Map div with smooth Hardware Accelerated Heads-Up Rotation */}
         <div
           ref={mapContainerRef}
-          className="w-full h-full z-10"
+          className="w-full h-full z-10 will-change-transform"
+          style={{
+            transform: isLiveNavigating && isHeadingUpNavigation ? `rotate(${-vehicleHeading}deg) scale(1.25)` : 'none',
+            transformOrigin: '50% 50%',
+            transition: 'transform 0.2s linear',
+          }}
         />
 
         {/* Dynamic Auto-Reroute Realtime Badge */}
