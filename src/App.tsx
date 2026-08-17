@@ -1762,53 +1762,7 @@ export default function App() {
               <InstantConsumptionCanvas instantConsumption={instantConsumption} />
             </div>
 
-            {/* Telemetry Summary & Trigger Button */}
-            <div
-              onClick={() => setShowTelemetryModal(true)}
-              className="bg-[#0e0e18] hover:bg-[#141424] border border-[#222234] hover:border-[#c19a6b]/50 p-2 rounded-xl flex items-center justify-between cursor-pointer transition-all shrink-0"
-              title="Abrir Gráficos de Telemetria e Histórico de Velocidade"
-            >
-              <div className="flex items-center gap-1.5">
-                <div className="w-5 h-5 rounded-md bg-[#c19a6b]/20 border border-[#c19a6b]/40 flex items-center justify-center text-[#c19a6b]">
-                  <Activity size={12} />
-                </div>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] font-black uppercase text-zinc-200">TELEMETRIA & GRÁFICO B3</span>
-                    <span className="text-[8px] bg-emerald-500/20 text-emerald-400 font-bold px-1 rounded">LIVE</span>
-                  </div>
-                  <span className="text-[8px] text-zinc-400">Velas, médias e ocorrências em tempo real</span>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-1 text-[9px] font-black uppercase text-[#c19a6b] bg-[#1a1a2a] px-2 py-0.5 rounded border border-[#2a2a3e]">
-                <span>Ver Detalhes 📊</span>
-              </div>
-            </div>
-
-            {/* OpenStreetMap Real-Time & AI Navigation Launcher */}
-            <div
-              onClick={() => setShowOpenStreetMapModal(true)}
-              className="bg-[#09150f] hover:bg-[#0f2118] border border-emerald-500/40 hover:border-emerald-400/80 p-2 rounded-xl flex items-center justify-between cursor-pointer transition-all shrink-0 shadow-md"
-              title="Abrir Mapa com Dados Abertos OpenStreetMap, Traçar Rota & IA"
-            >
-              <div className="flex items-center gap-1.5">
-                <div className="w-5 h-5 rounded-md bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-                  <Compass size={12} />
-                </div>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] font-black uppercase text-emerald-300">OPENSTREETMAP • ROTAS IA</span>
-                    <span className="text-[8px] bg-emerald-500/30 text-emerald-300 font-bold px-1 rounded">ABERTO</span>
-                  </div>
-                  <span className="text-[8px] text-zinc-400">Território verde • Ruas cinza • Mar azul</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1 text-[9px] font-black uppercase text-emerald-300 bg-[#06140b] px-2 py-0.5 rounded border border-emerald-500/40">
-                <span>Ver Mapa 🗺️</span>
-              </div>
-            </div>
           </div>
         </div>
 
