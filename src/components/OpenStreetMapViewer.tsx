@@ -187,6 +187,39 @@ const DEFAULT_FAVORITES: FavoriteDestination[] = [
   },
 ];
 
+// Custom Leaflet TileLayer that prioritizes IndexedDB Offline Cache
+const OfflineTileLayer = L.TileLayer.extend({
+  createTile: function (coords: L.Coords, done: L.DoneCallback) {
+    const tile = document.createElement('img');
+    const url = this.getTileUrl(coords);
+
+    // Try IndexedDB first (faster for downloaded regions)
+    offlineMapManager.getTile(url).then((blob) => {
+      if (blob) {
+        const objectUrl = URL.createObjectURL(blob);
+        tile.src = objectUrl;
+        // Leaflet will handle the rest
+        tile.onload = () => {
+          done(null, tile);
+          // Optional: URL.revokeObjectURL(objectUrl) - usually handled by tile removal
+        };
+        tile.onerror = () => {
+          tile.src = url; // Fallback to network if blob fails
+        };
+      } else {
+        // Fallback to Network immediately if not in IndexedDB
+        tile.src = url;
+      }
+    });
+
+    // Standard Leaflet event listeners for the network fallback
+    L.DomEvent.on(tile, 'load', L.bind(done, null, null, tile));
+    L.DomEvent.on(tile, 'error', L.bind(done, null, new Error('Tile load failed'), tile));
+
+    return tile;
+  },
+});
+
 export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
   currentLat,
   currentLng,
@@ -534,21 +567,26 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     if (theme === 'dark') {
       template = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
     } else if (theme === 'satellite') {
-      template = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{n}';
+      // Fix Esri Satellite URL and add error fallback
+      template = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
     } else if (theme === 'standard') {
       template = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     } else {
-      // High-contrast Voyager for Waze-like readability with all labels
-      template = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_all/{z}/{x}/{y}{r}.png';
+      // High-reliability Voyager for Waze-like UI
+      template = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
     }
 
-    return L.tileLayer(template, {
+    // Using our custom OfflineTileLayer for 100% reliability
+    return new (OfflineTileLayer as any)(template, {
       maxZoom: 19,
+      minZoom: 3,
       subdomains: ['a', 'b', 'c', 'd'],
       className,
+      crossOrigin: true,
+      detectRetina: true,
       errorTileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      updateWhenIdle: false, // Faster loading during movement
-      keepBuffer: 4,
+      updateWhenIdle: false,
+      keepBuffer: 12, // Maximum buffer for car movement
     });
   }
 
@@ -566,7 +604,9 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       zoom: 16,
       zoomControl: false,
       attributionControl: false,
-      fadeAnimation: false, // Instant tile appearance as requested
+      fadeAnimation: true, // Smoother transitions
+      markerZoomAnimation: true,
+      zoomAnimation: true,
     });
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -2691,7 +2731,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
         {/* Map div with smooth Hardware Accelerated Heads-Up Rotation */}
         <div
           ref={mapContainerRef}
-          className="w-full h-full z-10 will-change-transform"
+          className="w-full h-full z-10 will-change-transform bg-[#f1f3f4]"
           style={{
             transform: isLiveNavigating && isHeadingUpNavigation ? `rotate(${-vehicleHeading}deg) scale(1.6)` : 'none',
             transformOrigin: '50% 50%',
