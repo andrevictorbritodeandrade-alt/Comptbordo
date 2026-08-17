@@ -538,8 +538,8 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     } else if (theme === 'standard') {
       template = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     } else {
-      // High-contrast Voyager for Waze-like readability
-      template = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png';
+      // High-contrast Voyager for Waze-like readability with all labels
+      template = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_all/{z}/{x}/{y}{r}.png';
     }
 
     return L.tileLayer(template, {
@@ -547,6 +547,8 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       subdomains: ['a', 'b', 'c', 'd'],
       className,
       errorTileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      updateWhenIdle: false, // Faster loading during movement
+      keepBuffer: 4,
     });
   }
 
@@ -564,6 +566,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       zoom: 16,
       zoomControl: false,
       attributionControl: false,
+      fadeAnimation: false, // Instant tile appearance as requested
     });
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -1762,50 +1765,75 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
       }
 
       const totalCoords = route.coordinates.length;
-      const fractionRemaining = Math.max(0, 1 - closestIdx / totalCoords);
+      
+      // Calculate more precise distance travelled along polyline
+      let distTravelled = 0;
+      for (let i = 0; i < closestIdx; i++) {
+        distTravelled += computeDistanceMeters(route.coordinates[i], route.coordinates[i+1]);
+      }
+      
+      const totalDistanceM = route.distanceKm * 1000;
+      const fractionTravelled = Math.min(1, distTravelled / totalDistanceM);
+      const fractionRemaining = Math.max(0, 1 - fractionTravelled);
+      
       const remKm = Math.max(0.1, Number((route.distanceKm * fractionRemaining).toFixed(1)));
       const remMin = Math.max(1, Math.round(route.durationMin * fractionRemaining));
+      
       setLiveRemainingDistanceKm(remKm);
       setLiveRemainingDurationMin(remMin);
 
       const steps = route.steps || [];
       if (steps.length > 0) {
-        let activeIdx = currentStepIndex;
-
-        // Check if driver has reached or passed the upcoming step maneuver point
-        const activeManeuverLoc = steps[activeIdx]?.location;
-        if (activeManeuverLoc) {
-          const distToCurrent = computeDistanceMeters([currentPos.lat, currentPos.lng], activeManeuverLoc);
-          if (distToCurrent < 25 && activeIdx < steps.length - 1) {
-            activeIdx += 1;
-            setCurrentStepIndex(activeIdx);
+        // Calculate cumulative distance to find the current active step
+        let cumulativeM = 0;
+        let activeIdx = 0;
+        
+        for (let i = 0; i < steps.length; i++) {
+          cumulativeM += steps[i].distance;
+          if (distTravelled < cumulativeM) {
+            activeIdx = i;
+            break;
           }
-        } else {
-          // If no explicit location, calculate proportional index along route
-          const estIdx = Math.min(steps.length - 1, Math.floor((closestIdx / totalCoords) * steps.length));
-          if (estIdx > activeIdx) {
-            activeIdx = estIdx;
-            setCurrentStepIndex(activeIdx);
+          activeIdx = i;
+        }
+
+        const upcomingStepIdx = Math.min(steps.length - 1, activeIdx + 1);
+        const upcomingStep = steps[upcomingStepIdx];
+        
+        // Distance to the upcoming maneuver is the remaining distance of the current step
+        let currentStepCumulative = 0;
+        for (let i = 0; i <= activeIdx; i++) {
+          currentStepCumulative += steps[i].distance;
+        }
+        const distToNextManeuver = Math.max(0, currentStepCumulative - distTravelled);
+
+        // Update current street and detected speed limit (Heuristic based on street name and speed)
+        const activeStepObj = steps[activeIdx];
+        if (activeStepObj) {
+          const sName = activeStepObj.name || activeStepObj.instruction || 'Pista';
+          setCurrentStreetName(sName);
+          
+          const sNameLower = sName.toLowerCase();
+          if (sNameLower.includes('rodovia') || sNameLower.includes('br-') || sNameLower.includes('sp-') || liveNavSpeed > 95) {
+            setDetectedRoadSpeedLimit(110);
+          } else if (sNameLower.includes('avenida') || sNameLower.includes('expressa') || liveNavSpeed > 65) {
+            setDetectedRoadSpeedLimit(80);
+          } else if (sNameLower.includes('rua') || sNameLower.includes('alameda')) {
+            setDetectedRoadSpeedLimit(40);
+          } else if (liveNavSpeed > 45) {
+            setDetectedRoadSpeedLimit(60);
           }
         }
 
-        const currentStepObj = steps[activeIdx] || steps[0];
-        let distanceToManeuver = 0;
-
-        if (currentStepObj.location) {
-          distanceToManeuver = computeDistanceMeters([currentPos.lat, currentPos.lng], currentStepObj.location);
-        } else {
-          distanceToManeuver = Math.round(currentStepObj.distance * fractionRemaining);
-        }
-
-        const cleanStepMeters = Math.max(10, Math.round(distanceToManeuver));
+        setCurrentStepIndex(upcomingStepIdx);
+        const cleanStepMeters = Math.max(0, Math.round(distToNextManeuver));
         setDistanceToNextStepMeters(cleanStepMeters);
 
         // Voice and Visual Synchronized Announcement
-        if (activeIdx !== lastSpokenStepIndexRef.current) {
-          lastSpokenStepIndexRef.current = activeIdx;
-          const currentInst = currentStepObj.instruction;
-          const street = currentStepObj.name && currentStepObj.name !== 'Via Principal' ? `na ${currentStepObj.name}` : '';
+        if (upcomingStepIdx !== lastSpokenStepIndexRef.current) {
+          lastSpokenStepIndexRef.current = upcomingStepIdx;
+          const currentInst = upcomingStep.instruction;
+          const street = upcomingStep.name && upcomingStep.name !== 'Via Principal' ? `na ${upcomingStep.name}` : '';
           
           if (cleanStepMeters > 50) {
             roadAlertsEngine.speak(`Em ${cleanStepMeters} metros, ${currentInst} ${street}`);
@@ -2760,51 +2788,51 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
           </div>
         </div>
       ) : (
-        /* ─── AUTHENTIC WAZE TOP MANEUVER BANNER (BLACK HEADER) ─── */
-        <div className="bg-black text-white px-4 py-3 z-30 shadow-2xl border-b border-zinc-800 shrink-0 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            {/* Crisp White Waze Maneuver Direction Arrow */}
-            <div className="shrink-0 flex items-center justify-center filter drop-shadow-md">
-              {renderWazeManeuverSvg(activeStep, 42)}
+        /* ─── AUTHENTIC WAZE TOP MANEUVER BANNER (VIBRANT BLUE) ─── */
+        <div className="bg-[#2563eb] text-white px-5 py-4 z-30 shadow-2xl shrink-0 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-5 flex-1 min-w-0">
+            {/* White Maneuver Direction Arrow with Shadow */}
+            <div className="shrink-0 flex items-center justify-center filter drop-shadow-lg">
+              {renderWazeManeuverSvg(activeStep, 50)}
             </div>
 
-            {/* Distance and Target Street Name */}
+            {/* Big Countdown Distance and Target Street */}
             <div className="flex-1 min-w-0">
-              <div className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-none">
+              <div className="text-4xl sm:text-5xl font-black tracking-tighter text-white leading-none">
                 {distanceToNextStepMeters > 0
                   ? distanceToNextStepMeters >= 1000
-                    ? `${(distanceToNextStepMeters / 1000).toFixed(1)} km`
-                    : `${distanceToNextStepMeters} m`
-                  : 'Siga'}
+                    ? `${(distanceToNextStepMeters / 1000).toFixed(1)}km`
+                    : `${distanceToNextStepMeters}m`
+                  : 'Agora'}
               </div>
-              <div className="text-sm sm:text-base font-bold text-[#00e5ff] truncate mt-1 leading-tight">
-                {activeStep?.name || activeStep?.instruction || activeRoute?.destinationName || 'Siga a via'}
+              <div className="text-lg sm:text-xl font-bold text-white/90 truncate mt-1 leading-tight flex items-center gap-2">
+                {activeStep?.name && activeStep?.name !== 'Via Principal' 
+                  ? activeStep.name 
+                  : activeStep?.instruction || activeRoute?.destinationName || 'Siga a via'}
               </div>
             </div>
           </div>
 
           {/* Quick Sound Mode & Exit Trip */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-col items-center gap-2 shrink-0">
             <button
               onClick={toggleWazeSoundMode}
-              className="p-2.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 active:scale-95 transition-all shadow-md"
-              title={`Áudio: ${wazeSoundMode === 'all' ? 'Voz e Alertas' : wazeSoundMode === 'alerts' ? 'Somente Alertas' : 'Mudo'}`}
+              className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 active:scale-95 transition-all shadow-lg backdrop-blur-sm"
             >
               {wazeSoundMode === 'all' ? (
-                <Volume2 size={18} className="text-emerald-400" />
+                <Volume2 size={22} />
               ) : wazeSoundMode === 'alerts' ? (
-                <Volume1 size={18} className="text-amber-400" />
+                <Volume1 size={22} className="text-amber-300" />
               ) : (
-                <VolumeX size={18} className="text-zinc-500" />
+                <VolumeX size={22} className="text-white/40" />
               )}
             </button>
 
             <button
               onClick={stopLiveNavigation}
-              className="p-2.5 rounded-full bg-zinc-900 hover:bg-red-950/80 text-zinc-400 hover:text-red-400 border border-zinc-700 hover:border-red-500/50 active:scale-95 transition-all shadow-md"
-              title="Encerrar Rota"
+              className="p-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white border border-red-500 active:scale-95 transition-all shadow-lg"
             >
-              <X size={18} />
+              <X size={22} />
             </button>
           </div>
         </div>
@@ -2817,9 +2845,9 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
           ref={mapContainerRef}
           className="w-full h-full z-10 will-change-transform"
           style={{
-            transform: isLiveNavigating && isHeadingUpNavigation ? `rotate(${-vehicleHeading}deg) scale(2.8)` : 'none',
+            transform: isLiveNavigating && isHeadingUpNavigation ? `rotate(${-vehicleHeading}deg) scale(1.6)` : 'none',
             transformOrigin: '50% 50%',
-            transition: 'transform 0.25s linear',
+            transition: 'transform 0.3s linear',
           }}
         />
 
