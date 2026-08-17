@@ -589,11 +589,11 @@ export default function App() {
     }
   }, [carConfig, activeTripKey, trips, mode, isCloudSynced]);
 
-  // One-time initialization with the user's specific real-world telemetry values (Odometer: 150858km, Driven after refuel: 100km)
+  // One-time initialization with the user's specific real-world telemetry values (Odometer: 150898km, Driven after refuel: 140km)
   useEffect(() => {
-    const initializedKey = 'user_real_telemetry_applied_150858_v2';
+    const initializedKey = 'user_real_telemetry_applied_150898_v3';
     if (!localStorage.getItem(initializedKey)) {
-      const drivenAfterRefuelKm = 100.0;
+      const drivenAfterRefuelKm = 140.0;
       const baseCons = carConfig.currentFuel === 'gasoline' ? carConfig.avgConsumptionGasoline : carConfig.avgConsumptionEthanol;
       const litersUsed = drivenAfterRefuelKm / baseCons;
       const fuelPercentageUsed = (litersUsed / carConfig.tankCapacity) * 100;
@@ -601,7 +601,7 @@ export default function App() {
 
       setCarConfig((prev) => ({
         ...prev,
-        totalOdometerKm: 150858.0,
+        totalOdometerKm: 150898.0,
         fuelLevel: Number(finalFuelLevel.toFixed(1)),
       }));
 
@@ -614,8 +614,8 @@ export default function App() {
             ...currentTrip,
             active: true,
             paused: false,
-            distance: drivenAfterRefuelKm * 1000, // 100 km em metros
-            elapsedTime: 5400, // Estimativa de 1h30m para 100km
+            distance: drivenAfterRefuelKm * 1000, // 140 km em metros
+            elapsedTime: 7200, // Estimativa de 2h para 140km
             totalFuelConsumed: Number(litersUsed.toFixed(2)),
           }
         };
