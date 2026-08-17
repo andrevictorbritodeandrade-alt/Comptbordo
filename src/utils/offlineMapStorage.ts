@@ -21,7 +21,18 @@ export interface OfflineRegion {
 
 export interface RoadHazardAlert {
   id: string;
-  type: 'speed_camera' | 'speed_bump' | 'sharp_curve' | 'pothole' | 'police' | 'gas_station' | 'traffic' | 'construction';
+  type:
+    | 'speed_camera'
+    | 'mobile_camera'
+    | 'speed_bump'
+    | 'sharp_curve'
+    | 'pothole'
+    | 'police'
+    | 'gas_station'
+    | 'traffic'
+    | 'construction'
+    | 'accident'
+    | 'stopped_vehicle';
   title: string;
   description: string;
   lat: number;

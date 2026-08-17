@@ -39,6 +39,15 @@ input[type="range"] {
   background: #c19a6b;
 }
 
+/* Utility to hide scrollbars while allowing smooth touch/mouse scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* OpenStreetMap Automotive Theme: High Visibility Roads & Dimmed Buildings */
 .leaflet-container {
   background-color: #080d0a !important;

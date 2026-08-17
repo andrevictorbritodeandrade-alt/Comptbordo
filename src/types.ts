@@ -84,7 +84,7 @@ export interface FavoriteDestination {
   address: string;
   lat: number;
   lng: number;
-  icon?: 'home' | 'work' | 'gas' | 'shopping' | 'gym' | 'beach' | 'heart' | 'star' | 'pin';
+  icon?: 'home' | 'work' | 'gas' | 'shopping' | 'gym' | 'beach' | 'heart' | 'star' | 'pin' | 'school';
   category?: string;
   createdAt: number;
 }
