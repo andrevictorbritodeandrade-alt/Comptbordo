@@ -342,7 +342,8 @@ class RoadAlertsEngine {
     }
 
     try {
-      window.speechSynthesis.cancel();
+      // Commented out cancel() to prevent aggressive audio focus theft that stops music on some car systems
+      // window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'pt-BR';
       utterance.rate = 1.05; // Natural GPS co-pilot speed

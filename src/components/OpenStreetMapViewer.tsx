@@ -2192,7 +2192,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     if (mapInstanceRef.current) {
       mapInstanceRef.current.invalidateSize();
       const startCoord = route.coordinates[0];
-      mapInstanceRef.current.setView([startCoord[0], startCoord[1]], 17, { animate: true });
+      mapInstanceRef.current.setView([startCoord[0], startCoord[1]], 15.8, { animate: true });
     }
 
     // Voice announcement
@@ -2324,7 +2324,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
     if (mapInstanceRef.current) {
       const lat = driverPos.lat;
       const lng = driverPos.lng;
-      mapInstanceRef.current.setView([lat, lng], isLiveNavigating ? 17 : 16, { animate: true });
+      mapInstanceRef.current.setView([lat, lng], isLiveNavigating ? 15.8 : 16, { animate: true });
     }
   };
 
@@ -2675,79 +2675,72 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
           </div>
         </div>
       ) : (
-
         /* ─── AUTHENTIC WAZE TOP MANEUVER BANNER (VIBRANT BLUE) ─── */
         <div className="bg-[#2563eb] text-white px-5 py-4 z-30 shadow-2xl shrink-0 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-5 flex-1 min-w-0">
-            {/* White Maneuver Direction Arrow with Shadow */}
-            <div className="shrink-0 flex items-center justify-center filter drop-shadow-lg">
-              {renderWazeManeuverSvg(activeStep, 50)}
+          <div className="flex flex-col min-w-0">
+            <span className="text-[11px] font-black uppercase text-white/70 tracking-widest leading-none mb-1">
+              Siga em direção a:
+            </span>
+            <div className="text-2xl sm:text-3xl font-black text-white truncate leading-tight">
+              {activeStep?.name && activeStep?.name !== 'Via Principal' 
+                ? activeStep.name 
+                : activeStep?.instruction || activeRoute?.destinationName || 'Destino'}
             </div>
+          </div>
 
-            {/* Big Countdown Distance and Target Street */}
-            <div className="flex-1 min-w-0">
-              <div className="text-4xl sm:text-5xl font-black tracking-tighter text-white leading-none">
+          <button
+            onClick={stopLiveNavigation}
+            className="w-12 h-12 rounded-2xl bg-black/20 hover:bg-red-600 text-white border border-white/20 active:scale-95 transition-all shadow-lg flex items-center justify-center shrink-0"
+          >
+            <X size={26} />
+          </button>
+        </div>
+      )}
+
+      {/* ─── MAIN LEAFLET MAP CONTAINER ─── */}
+      <div className="relative flex-1 w-full min-h-0 overflow-hidden bg-[#f1f3f4] perspective-[1000px]">
+        {/* Map div with smooth Hardware Accelerated Heads-Up Rotation & 3D TILT */}
+        <div
+          ref={mapContainerRef}
+          className="w-full h-full z-10 will-change-transform bg-[#f1f3f4]"
+          style={{
+            transform: isLiveNavigating && isHeadingUpNavigation 
+              ? `rotateX(45deg) rotate(${-vehicleHeading}deg) scale(2.8)` 
+              : 'none',
+            transformOrigin: '50% 50%',
+            transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        />
+
+        {/* Dynamic Auto-Reroute Realtime Badge */}
+        {isRecalculatingRoute && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 bg-[#00b8ff] text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2 font-black text-sm uppercase border-2 border-white animate-pulse">
+            <Loader2 size={18} className="animate-spin" />
+            <span>Recalculando melhor rota...</span>
+          </div>
+        )}
+
+        {/* Waze Maneuver Side Card (Black Floating Box from Video) */}
+        {isLiveNavigating && (
+          <div className="absolute top-28 left-4 z-30 flex flex-col gap-1 pointer-events-none animate-in slide-in-from-left-4">
+            <div className="bg-[#181a20]/95 border border-zinc-700 rounded-2xl p-4 shadow-2xl backdrop-blur-md flex flex-col items-center gap-1 w-32 border-b-4 border-b-blue-500">
+              <div className="filter drop-shadow-lg scale-125 mb-1">
+                {renderWazeManeuverSvg(activeStep, 48)}
+              </div>
+              <div className="text-2xl font-black text-white leading-none">
                 {distanceToNextStepMeters > 0
                   ? distanceToNextStepMeters >= 1000
                     ? `${(distanceToNextStepMeters / 1000).toFixed(1)}km`
                     : `${distanceToNextStepMeters}m`
                   : 'Agora'}
               </div>
-              <div className="text-lg sm:text-xl font-bold text-white/90 truncate mt-1 leading-tight flex items-center gap-2">
-                {activeStep?.name && activeStep?.name !== 'Via Principal' 
-                  ? activeStep.name 
-                  : activeStep?.instruction || activeRoute?.destinationName || 'Siga a via'}
-              </div>
             </div>
-          </div>
-
-          {/* Quick Sound Mode & Exit Trip */}
-          <div className="flex flex-col items-center gap-2 shrink-0">
-            <button
-              onClick={toggleWazeSoundMode}
-              className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 active:scale-95 transition-all shadow-lg backdrop-blur-sm"
-            >
-              {wazeSoundMode === 'all' ? (
-                <Volume2 size={22} />
-              ) : wazeSoundMode === 'alerts' ? (
-                <Volume1 size={22} className="text-amber-300" />
-              ) : (
-                <VolumeX size={22} className="text-white/40" />
-              )}
-            </button>
-
-            <button
-              onClick={stopLiveNavigation}
-              className="p-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white border border-red-500 active:scale-95 transition-all shadow-lg"
-            >
-              <X size={22} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ─── MAIN LEAFLET MAP CONTAINER ─── */}
-      <div className="relative flex-1 w-full min-h-0 overflow-hidden bg-[#e8ecef]">
-        {/* Map div with smooth Hardware Accelerated Heads-Up Rotation */}
-        <div
-          ref={mapContainerRef}
-          className="w-full h-full z-10 will-change-transform bg-[#f1f3f4]"
-          style={{
-            transform: isLiveNavigating && isHeadingUpNavigation ? `rotate(${-vehicleHeading}deg) scale(1.6)` : 'none',
-            transformOrigin: '50% 50%',
-            transition: 'transform 0.3s linear',
-          }}
-        />
-
-        {/* Dynamic Auto-Reroute Realtime Badge */}
-        {isRecalculatingRoute && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 bg-amber-400 text-black px-4 py-2 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-2 font-black text-xs uppercase tracking-wider animate-bounce border-2 border-black">
-            <Loader2 size={16} className="animate-spin" />
-            <span>Recalculando rota Waze...</span>
           </div>
         )}
 
+
         {/* Proactive Nearby Hazards Alert Floating Pill */}
+
         {nearbyHazards.length > 0 && (
           <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 max-w-xs animate-in slide-in-from-top-2">
             {nearbyHazards.slice(0, 2).map((h) => (
@@ -2856,45 +2849,55 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
             </div>
 
             {/* Current Street Pill (Floating centered near bottom of map) */}
-            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 bg-white text-zinc-900 px-5 py-1.5 rounded-full shadow-2xl font-black text-xs border border-zinc-300 truncate max-w-[82vw] text-center tracking-wide pointer-events-none drop-shadow-lg">
-              {activeStep?.name || 'R. Milton Santos'}
+            <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-20 bg-white text-zinc-900 px-6 py-2 rounded-full shadow-2xl font-black text-sm border border-zinc-200 truncate max-w-[85vw] text-center tracking-wide pointer-events-none drop-shadow-xl flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              {activeStep?.name || 'Aguardando via...'}
             </div>
 
-            {/* Bottom-Left: Speedometer & Speed Limit Badge (Waze Style) */}
-            <div className="absolute bottom-24 left-3 z-20 flex items-center">
-              <div className="relative">
-                {/* Dark Speedometer Dial */}
-                <div
-                  className={`w-16 h-16 rounded-full bg-[#181a20] border-2 text-white flex flex-col items-center justify-center shadow-2xl ${
-                    liveNavSpeed > detectedRoadSpeedLimit
-                      ? 'border-red-500 ring-4 ring-red-500/30'
-                      : 'border-zinc-700'
-                  }`}
-                >
-                  <span className="text-2xl font-black tracking-tight leading-none text-white">
-                    {Math.round(liveNavSpeed)}
+            {/* Bottom-Left: Mini Speedometer (Transparent version for cleaner look) */}
+            <div className="absolute bottom-28 left-4 z-20 flex items-center">
+              <div className="w-14 h-14 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white flex flex-col items-center justify-center shadow-xl">
+                <span className="text-xl font-black leading-none">{Math.round(liveNavSpeed)}</span>
+                <span className="text-[8px] font-bold opacity-70">km/h</span>
+              </div>
+            </div>
+
+            {/* ─── AUTHENTIC WAZE WHITE BOTTOM DOCK (ETA, TIME, DISTANCE) ─── */}
+            <div className="absolute bottom-4 left-4 right-4 z-30 bg-white rounded-3xl p-5 shadow-[0_15px_50px_rgba(0,0,0,0.25)] flex items-center justify-between border border-zinc-100 animate-in slide-in-from-bottom-4">
+              <div className="flex items-center gap-8">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-1">Chegada</span>
+                  <span className="text-2xl font-black text-zinc-800">
+                    {calculateETA(activeRoute?.durationMin || 0)}
                   </span>
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase mt-0.5">km/h</span>
+                </div>
+                
+                <div className="h-10 w-px bg-zinc-200" />
+
+                <div className="flex flex-col items-center">
+                  <span className="text-2xl font-black text-emerald-600 leading-none">
+                    {activeRoute?.durationMin || 0} min
+                  </span>
+                  <div className="w-10 h-1.5 bg-emerald-500/20 rounded-full mt-2" />
                 </div>
 
-                {/* Overlapping Speed Limit Sign (Circle with red border) */}
-                <div className="w-8 h-8 rounded-full bg-white border-[3px] border-red-600 flex items-center justify-center text-black font-black text-[11px] shadow-lg absolute -top-1 -right-2 pointer-events-none">
-                  {detectedRoadSpeedLimit}
+                <div className="h-10 w-px bg-zinc-200" />
+
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-1">Distância</span>
+                  <span className="text-2xl font-black text-zinc-800">
+                    {activeRoute?.distanceKm?.toFixed(1) || 0} km
+                  </span>
                 </div>
               </div>
+
+              <button
+                onClick={() => setIsReportModalOpen(true)}
+                className="w-16 h-16 rounded-full bg-[#00b8ff] hover:bg-[#009de0] text-white shadow-lg shadow-blue-500/30 flex items-center justify-center active:scale-90 transition-all border-4 border-white"
+              >
+                <AlertTriangle size={32} className="fill-white" />
+              </button>
             </div>
-
-            {/* Bottom-Right: Yellow Hazard / Alert Report Squircle Button (⚠️+) */}
-            <button
-              onClick={() => setIsReportModalOpen(true)}
-              className="absolute bottom-24 right-3 z-20 w-14 h-14 rounded-2xl bg-[#ffd600] hover:bg-[#ffdf00] border-2 border-black/80 flex items-center justify-center text-black shadow-2xl active:scale-90 transition-transform cursor-pointer"
-              title="Reportar Radar, Blitz, Trânsito ou Perigo"
-            >
-              <div className="flex items-center justify-center font-black">
-                <AlertTriangle size={24} className="fill-black text-[#ffd600] stroke-[2.5]" />
-                <span className="text-base font-black leading-none ml-0.5">+</span>
-              </div>
-            </button>
           </>
         ) : (
           /* Pre-navigation Top Right Controls */
