@@ -1273,7 +1273,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen w-full bg-[#000000] text-zinc-100 p-1.5 sm:p-2 lg:p-2.5 flex flex-col justify-between font-sans select-none overflow-x-hidden md:h-screen md:max-h-screen md:overflow-hidden ${
+      className={`h-[100dvh] w-full bg-[#000000] text-zinc-100 p-1.5 sm:p-2 lg:p-2.5 flex flex-col justify-between font-sans select-none overflow-hidden ${
         hudMode ? 'scale-y-[-1]' : ''
       }`}
     >
@@ -1329,7 +1329,7 @@ export default function App() {
       )}
 
       {/* Main Dashboard Layout - Fully Responsive for Mobile Phone & Car Multimedia */}
-      <div className="w-full flex-1 flex flex-col justify-between gap-1.5 sm:gap-2 max-w-none md:overflow-hidden overflow-y-auto">
+      <div className="w-full flex-1 flex flex-col justify-between gap-1.5 sm:gap-2 max-w-none overflow-hidden">
         {/* Header Bar - Pure Single-Row Side-by-Side Horizontal Layout */}
         <header className="flex flex-row flex-nowrap justify-between items-center px-2 py-1 bg-[#09090d] border border-[#1e1e28] rounded-2xl shadow-xl shrink-0 gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
           {/* Left/Center Section: Date, Time & Weather Side-by-Side in One Single Line */}
@@ -1530,13 +1530,13 @@ export default function App() {
           </div>
         </header>
 
-        {/* Dashboard Grid - Fully Responsive for Mobile & Multimedia Landscape */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 flex-1 min-h-0 md:h-full md:overflow-hidden">
+        {/* Dashboard Layout - Flex-col on mobile, Grid on desktop - Strictly single-screen */}
+        <div className="flex flex-col md:grid md:grid-cols-12 gap-1.5 sm:gap-2 flex-1 min-h-0 h-full overflow-hidden">
           
           {/* Column 1: Speedometer Gauge & Total Odometer */}
-          <div className="col-span-1 md:col-span-4 flex flex-col gap-2 md:h-full min-h-[260px] md:min-h-0 justify-between">
+          <div className="flex-[1.4] md:col-span-4 flex flex-col gap-1.5 sm:gap-2 h-full min-h-0 justify-between">
             {/* Speedometer Gauge */}
-            <div className="flex-1 min-h-[200px] md:min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               <SpeedCanvas
                 speed={speed}
                 textSource={gpsState.sourceText}
@@ -1559,7 +1559,7 @@ export default function App() {
 
           {/* Column 2: Renault Clio Fuel Gauge & Tank Info (Shown prominently) */}
           <div
-            className={`col-span-1 md:col-span-3 flex flex-col justify-between gap-1.5 md:h-full min-h-[300px] md:min-h-0 border rounded-2xl p-2 sm:p-2.5 shadow-xl overflow-hidden transition-colors ${
+            className={`flex-1 md:col-span-3 flex flex-col justify-between gap-1.5 h-full min-h-0 border rounded-2xl p-1.5 sm:p-2 shadow-xl overflow-hidden transition-colors ${
               isReserveFuel
                 ? 'bg-[#150a0a] border-red-500/60 shadow-red-950/40'
                 : 'bg-[#09090d] border-[#1e1e28]'
@@ -1582,7 +1582,7 @@ export default function App() {
             </div>
 
             {/* Dial Canvas */}
-            <div className="flex-1 min-h-[140px] md:min-h-0 flex justify-center items-center relative w-full">
+            <div className="flex-1 min-h-0 flex justify-center items-center relative w-full">
               <div
                 className={`w-full h-full border rounded-xl p-1 relative flex justify-center items-center shadow-inner ${
                   isReserveFuel
@@ -1650,7 +1650,7 @@ export default function App() {
           </div>
 
           {/* Column 3: Trip Computer & Telemetry */}
-          <div ref={middleColRef} className="col-span-1 md:col-span-5 flex flex-col justify-between gap-1.5 md:h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2 sm:p-2.5 shadow-xl overflow-hidden relative">
+          <div ref={middleColRef} className="flex-1 md:col-span-5 flex flex-col justify-between gap-1.5 h-full min-h-0 bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2 sm:p-2.5 shadow-xl overflow-hidden relative">
             {/* Trip Tabs Switcher */}
             <div className="flex bg-[#050508] border border-[#1e1e28] rounded-lg p-0.5 shrink-0">
               {(['a', 'b'] as TripKey[]).map((k) => (
@@ -1809,7 +1809,7 @@ export default function App() {
       {/* OpenStreetMap Fullscreen Modal with Direct Search Cockpit */}
       {showOpenStreetMapModal && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-0 sm:p-2 backdrop-blur-md">
-          <div className="bg-[#090e0c] border border-emerald-500/40 sm:rounded-3xl p-0 w-full max-w-6xl h-full sm:h-[95vh] shadow-2xl relative flex flex-col overflow-hidden">
+          <div className="bg-[#090e0c] border border-emerald-500/40 sm:rounded-3xl p-0 w-full max-w-6xl h-[100dvh] sm:h-[95vh] shadow-2xl relative flex flex-col overflow-hidden">
             <div className="flex-1 min-h-0 w-full h-full">
               <OpenStreetMapViewer
                 currentLat={coords?.latitude || -22.9194}

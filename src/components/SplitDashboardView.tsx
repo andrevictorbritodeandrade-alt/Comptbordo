@@ -48,7 +48,7 @@ export const SplitDashboardView: React.FC<SplitDashboardViewProps> = ({
   const tripDistanceKm = (activeTrip.distance / 1000).toFixed(1);
 
   return (
-    <div className="w-full h-full min-h-screen max-h-screen bg-black text-zinc-100 p-2 flex flex-col justify-between font-sans select-none overflow-hidden">
+    <div className="w-full h-[100dvh] bg-black text-zinc-100 p-2 flex flex-col justify-between font-sans select-none overflow-hidden">
       {/* Top Bar for Split Screen Mode */}
       <header className="flex justify-between items-center px-2.5 py-1.5 bg-[#09090d] border border-[#1e1e28] rounded-xl shrink-0 gap-2">
         {/* Left: Time & GPS status */}

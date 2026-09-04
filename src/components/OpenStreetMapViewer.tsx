@@ -2448,20 +2448,20 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
 
   return (
     <div
-      className={`relative w-full h-full flex flex-col bg-[#07070b] overflow-hidden ${
+      className={`relative w-full h-[100dvh] flex flex-col bg-[#07070b] overflow-hidden ${
         isEmbedded ? 'rounded-2xl border border-[#1e1e28]' : 'fixed inset-0 z-50'
       }`}
     >
       {/* ─── TOP SECTION: GOOGLE MAPS PLANNER OR WAZE TURN-BY-TURN HUD ─── */}
       {!isLiveNavigating ? (
-        <div className="bg-[#00b8ff] text-white p-3 z-30 shadow-2xl shrink-0 flex flex-col gap-2">
+        <div className="bg-[#00b8ff] text-white p-2 sm:p-3 z-30 shadow-2xl shrink-0 flex flex-col gap-1.5 sm:gap-2">
           {/* Authentic Waze Top Bar Header */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-white text-[#00b8ff] font-black flex items-center justify-center shadow-md text-sm">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white text-[#00b8ff] font-black flex items-center justify-center shadow-md text-xs sm:text-sm">
                 🚗
               </div>
-              <span className="text-base font-black tracking-tighter text-white drop-shadow">Waze Live</span>
+              <span className="text-sm sm:text-base font-black tracking-tighter text-white drop-shadow">Waze Live</span>
             </div>
 
             {/* Quick Actions Bar */}
@@ -2508,16 +2508,16 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
           </div>
 
           {/* ─── AUTHENTIC WAZE SEARCH PILL BOX ─── */}
-          <div className="bg-white rounded-2xl p-2 shadow-lg flex flex-col gap-2 text-zinc-800">
+          <div className="bg-white rounded-2xl p-1.5 sm:p-2 shadow-lg flex flex-col gap-1.5 sm:gap-2 text-zinc-800">
             {/* Origin & Destination with Swap button */}
             <div className="flex items-center gap-2">
               <div className="flex flex-col items-center justify-between py-1 shrink-0">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
-                <div className="w-0.5 h-5 bg-zinc-300 my-0.5" />
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-100" />
+                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
+                <div className="w-0.5 h-4 sm:h-5 bg-zinc-300 my-0.5" />
+                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-500 ring-2 ring-red-100" />
               </div>
 
-              <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+              <div className="flex-1 flex flex-col gap-1 sm:gap-1.5 min-w-0">
                 {/* Origin Input */}
                 <div className="relative">
                   <input
@@ -2526,7 +2526,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
                     onChange={(e) => handleOriginChange(e.target.value)}
                     onFocus={() => setActiveSuggestionField('origin')}
                     placeholder="Sua localização atual..."
-                    className="w-full bg-zinc-100 text-xs text-zinc-900 placeholder-zinc-400 px-3 py-1.5 pr-8 rounded-xl border border-zinc-200 focus:outline-none focus:border-[#00b8ff] font-semibold"
+                    className="w-full bg-zinc-100 text-[10px] sm:text-xs text-zinc-900 placeholder-zinc-400 px-2.5 py-1 sm:py-1.5 pr-8 rounded-xl border border-zinc-200 focus:outline-none focus:border-[#00b8ff] font-semibold"
                   />
                   {!isUsingGpsOrigin ? (
                     <button
@@ -2569,7 +2569,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
                       }
                     }}
                     placeholder="Para onde vamos? 🚗💨"
-                    className="w-full bg-zinc-100 text-xs text-zinc-900 placeholder-zinc-400 px-3 py-2 pr-12 rounded-xl border border-zinc-200 focus:outline-none focus:border-[#00b8ff] font-bold shadow-sm"
+                    className="w-full bg-zinc-100 text-[10px] sm:text-xs text-zinc-900 placeholder-zinc-400 px-2.5 py-1.5 pr-12 rounded-xl border border-zinc-200 focus:outline-none focus:border-[#00b8ff] font-bold shadow-sm"
                   />
 
                   {destinationInput && (
@@ -2676,12 +2676,12 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
         </div>
       ) : (
         /* ─── AUTHENTIC WAZE TOP MANEUVER BANNER (VIBRANT BLUE) ─── */
-        <div className="bg-[#2563eb] text-white px-5 py-4 z-30 shadow-2xl shrink-0 flex items-center justify-between gap-4">
+        <div className="bg-[#2563eb] text-white px-4 py-3 sm:px-5 sm:py-4 z-30 shadow-2xl shrink-0 flex items-center justify-between gap-4">
           <div className="flex flex-col min-w-0">
-            <span className="text-[11px] font-black uppercase text-white/70 tracking-widest leading-none mb-1">
+            <span className="text-[10px] sm:text-[11px] font-black uppercase text-white/70 tracking-widest leading-none mb-1">
               Siga em direção a:
             </span>
-            <div className="text-2xl sm:text-3xl font-black text-white truncate leading-tight">
+            <div className="text-xl sm:text-3xl font-black text-white truncate leading-tight">
               {activeStep?.name && activeStep?.name !== 'Via Principal' 
                 ? activeStep.name 
                 : activeStep?.instruction || activeRoute?.destinationName || 'Destino'}
@@ -2863,29 +2863,29 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
             </div>
 
             {/* ─── AUTHENTIC WAZE WHITE BOTTOM DOCK (ETA, TIME, DISTANCE) ─── */}
-            <div className="absolute bottom-4 left-4 right-4 z-30 bg-white rounded-3xl p-5 shadow-[0_15px_50px_rgba(0,0,0,0.25)] flex items-center justify-between border border-zinc-100 animate-in slide-in-from-bottom-4">
-              <div className="flex items-center gap-8">
+            <div className="absolute bottom-4 left-4 right-4 z-30 bg-white rounded-3xl p-3 sm:p-5 shadow-[0_15px_50px_rgba(0,0,0,0.25)] flex items-center justify-between border border-zinc-100 animate-in slide-in-from-bottom-4">
+              <div className="flex items-center gap-4 sm:gap-8">
                 <div className="flex flex-col">
-                  <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-1">Chegada</span>
-                  <span className="text-2xl font-black text-zinc-800">
+                  <span className="text-[9px] sm:text-[11px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-1">Chegada</span>
+                  <span className="text-lg sm:text-2xl font-black text-zinc-800">
                     {calculateETA(activeRoute?.durationMin || 0)}
                   </span>
                 </div>
                 
-                <div className="h-10 w-px bg-zinc-200" />
+                <div className="h-8 sm:h-10 w-px bg-zinc-200" />
 
                 <div className="flex flex-col items-center">
-                  <span className="text-2xl font-black text-emerald-600 leading-none">
+                  <span className="text-lg sm:text-2xl font-black text-emerald-600 leading-none">
                     {activeRoute?.durationMin || 0} min
                   </span>
-                  <div className="w-10 h-1.5 bg-emerald-500/20 rounded-full mt-2" />
+                  <div className="w-8 h-1 sm:w-10 sm:h-1.5 bg-emerald-500/20 rounded-full mt-1.5 sm:mt-2" />
                 </div>
 
-                <div className="h-10 w-px bg-zinc-200" />
+                <div className="h-8 sm:h-10 w-px bg-zinc-200" />
 
                 <div className="flex flex-col">
-                  <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-1">Distância</span>
-                  <span className="text-2xl font-black text-zinc-800">
+                  <span className="text-[9px] sm:text-[11px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-1">Distância</span>
+                  <span className="text-lg sm:text-2xl font-black text-zinc-800">
                     {activeRoute?.distanceKm?.toFixed(1) || 0} km
                   </span>
                 </div>
@@ -2893,9 +2893,9 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
 
               <button
                 onClick={() => setIsReportModalOpen(true)}
-                className="w-16 h-16 rounded-full bg-[#00b8ff] hover:bg-[#009de0] text-white shadow-lg shadow-blue-500/30 flex items-center justify-center active:scale-90 transition-all border-4 border-white"
+                className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#00b8ff] hover:bg-[#009de0] text-white shadow-lg shadow-blue-500/30 flex items-center justify-center active:scale-90 transition-all border-4 border-white"
               >
-                <AlertTriangle size={32} className="fill-white" />
+                <AlertTriangle size={24} className="fill-white sm:w-8 sm:h-8" />
               </button>
             </div>
           </>
@@ -2940,28 +2940,28 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
         )}
       </div>
 
-      {/* ─── BOTTOM SECTION: ROUTE COMPARISON OR AUTHENTIC WAZE WHITE DOCK ─── */}
+      {/* ─── BOTTOM SECTION: ROUTE COMPARISON ─── */}
       {!isLiveNavigating ? (
         calculatedRoutes.length > 0 && (
-          <div className="bg-[#0b0b14]/98 border-t border-[#1f1f2e] p-3 z-30 shadow-2xl backdrop-blur-md shrink-0 flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar">
+          <div className="bg-[#0b0b14]/98 border-t border-[#1f1f2e] p-2 sm:p-3 z-30 shadow-2xl backdrop-blur-md shrink-0 flex flex-col gap-1.5 sm:gap-2 max-h-48 sm:max-h-64 overflow-y-auto custom-scrollbar">
             {/* Route Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase text-zinc-300">
-                  {calculatedRoutes.length} {calculatedRoutes.length === 1 ? 'Rota Encontrada' : 'Rotas Comparadas'}
+                <span className="text-[10px] sm:text-xs font-black uppercase text-zinc-300">
+                  {calculatedRoutes.length} {calculatedRoutes.length === 1 ? 'Rota' : 'Rotas'}
                 </span>
-                <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-                  🍃 Renault Clio 1.0 16V
+                <span className="hidden xs:inline text-[9px] sm:text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                  🍃 Renault Clio
                 </span>
               </div>
 
               {/* Botão de Iniciar Navegação Waze */}
               <button
                 onClick={() => startLiveNavigation(false)}
-                className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-black text-xs uppercase rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-black text-[10px] sm:text-xs uppercase rounded-xl flex items-center gap-1.5 sm:gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
               >
-                <Play size={14} className="fill-black" />
-                <span>INICIAR NAVEGAÇÃO</span>
+                <Play size={12} className="fill-black sm:w-3.5 sm:h-3.5" />
+                <span>INICIAR</span>
               </button>
             </div>
 
@@ -3014,121 +3014,7 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
             </div>
           </div>
         )
-      ) : (
-        /* ─── AUTHENTIC WAZE BOTTOM WHITE FLOATING DOCK SHEET ─── */
-        <div className="bg-white text-zinc-900 border-t border-zinc-200 z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.35)] shrink-0 flex flex-col rounded-t-3xl transition-all duration-300">
-          {/* Grey Drag Pill */}
-          <div
-            onClick={() => setIsWazeDrawerOpen(!isWazeDrawerOpen)}
-            className="w-full pt-2 pb-1 flex justify-center cursor-pointer"
-          >
-            <div className="w-12 h-1.5 bg-zinc-300 hover:bg-zinc-400 rounded-full transition-colors" />
-          </div>
-
-          {/* Main Navigation Summary Row */}
-          <div className="px-5 pb-3 pt-1 flex items-center justify-between gap-3">
-            {/* Search / Route Alternatives Button (Left) */}
-            <button
-              onClick={() => setIsWazeDrawerOpen(!isWazeDrawerOpen)}
-              className="w-11 h-11 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-800 flex items-center justify-center active:scale-95 transition-all shadow-sm"
-              title="Ver detalhes da rota"
-            >
-              <Search size={20} />
-            </button>
-
-            {/* Center: ETA Time & Distance (Waze Signature) */}
-            <div
-              onClick={() => setIsWazeDrawerOpen(!isWazeDrawerOpen)}
-              className="flex flex-col items-center cursor-pointer flex-1"
-            >
-              <div className="text-3xl font-black tracking-tight text-zinc-950 leading-none">
-                {calculateETA(liveRemainingDurationMin)}
-              </div>
-              <div className="text-sm font-bold text-zinc-700 mt-1 flex items-center gap-1.5">
-                <span>{liveRemainingDurationMin} min</span>
-                <span>•</span>
-                <span>{liveRemainingDistanceKm} km</span>
-              </div>
-            </div>
-
-            {/* Right: Route Options / Exit (Right) */}
-            <button
-              onClick={() => setIsWazeDrawerOpen(!isWazeDrawerOpen)}
-              className={`w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition-all shadow-sm ${
-                isWazeDrawerOpen ? 'bg-zinc-900 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800'
-              }`}
-              title="Expandir / Recolher opções"
-            >
-              {isWazeDrawerOpen ? <ChevronDown size={22} /> : <ChevronUp size={22} />}
-            </button>
-          </div>
-
-          {/* Expandable Drawer Details */}
-          {isWazeDrawerOpen && (
-            <div className="px-5 pb-5 pt-2 border-t border-zinc-100 flex flex-col gap-3 max-h-64 overflow-y-auto custom-scrollbar animate-in slide-in-from-bottom-3">
-              {/* Renault Clio Consumption & Cost Card */}
-              <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                    <Fuel size={20} />
-                  </div>
-                  <div>
-                    <div className="text-xs font-black text-zinc-900">Renault Clio 1.0 16V</div>
-                    <div className="text-[11px] text-zinc-500 font-medium">
-                      Consumo est.: ~{activeRoute?.litersNeeded || 0}L de {fuelTypeLabel}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs font-bold text-zinc-500">Custo Est.</div>
-                  <div className="text-sm font-black text-emerald-600">
-                    R$ {activeRoute?.costEstimatedBrl?.toFixed(2) || '0.00'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Turn-by-Turn Steps */}
-              {activeRoute?.steps && activeRoute.steps.length > 0 && (
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-[11px] font-black uppercase text-zinc-400">Próximos Passos:</span>
-                  <div className="flex flex-col gap-1 max-h-36 overflow-y-auto">
-                    {activeRoute.steps.slice(currentStepIndex, currentStepIndex + 5).map((st, i) => (
-                      <div
-                        key={i}
-                        className={`p-2 rounded-xl border flex items-center gap-2.5 text-xs ${
-                          i === 0
-                            ? 'bg-purple-50 border-purple-200 text-purple-900 font-bold'
-                            : 'bg-white border-zinc-100 text-zinc-600'
-                        }`}
-                      >
-                        <div className="shrink-0">
-                          {renderWazeManeuverSvg(st, 18)}
-                        </div>
-                        <div className="flex-1 truncate">
-                          <span>{st.instruction}</span>
-                          {st.name && <span className="font-bold"> - {st.name}</span>}
-                        </div>
-                        <span className="text-[10px] font-bold text-zinc-400">
-                          {st.distanceMeters ? `${st.distanceMeters}m` : ''}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Exit Navigation Button */}
-              <button
-                onClick={stopLiveNavigation}
-                className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase rounded-xl flex items-center justify-center gap-2 shadow-md active:scale-98 transition-all mt-1"
-              >
-                <Square size={14} />
-                <span>ENCERRAR NAVEGAÇÃO</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      ) : null}
 
       {/* ─── MODAL: VOICE SEARCH WAZE ASSISTANT ─── */}
       {isVoiceSearchOpen && (
@@ -3747,19 +3633,6 @@ export const OpenStreetMapViewer: React.FC<OpenStreetMapViewerProps> = ({
           </div>
         </div>
       )}
-
-      {/* Footer Info Bar */}
-      <div className="bg-[#09090e] border-t border-[#1a1a26] px-3 py-1 flex items-center justify-between text-[9px] text-zinc-400 shrink-0 z-20">
-        <div className="flex items-center gap-2">
-          <span>Lat: {driverPos.lat.toFixed(5)}</span>
-          <span>Lng: {driverPos.lng.toFixed(5)}</span>
-          <span className="hidden sm:inline">• Trilha: {breadcrumbTrail.length} pts</span>
-          <span className="text-cyan-400 font-bold">• {cachedTilesCount} Tiles Salvos</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-zinc-400">
-          <span>© OpenStreetMap • Alertas & Voz Ativos • Mapas Offline Brasil</span>
-        </div>
-      </div>
     </div>
   );
 };
