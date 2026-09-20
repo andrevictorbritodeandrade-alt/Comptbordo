@@ -10,10 +10,15 @@ export const OdometerDisplay: React.FC<OdometerDisplayProps> = ({ totalKm, onOdo
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState(totalKm.toFixed(1));
 
+  const [showSuccess, setShowSuccess] = useState(false);
+
   const handleSave = () => {
     const val = parseFloat(inputValue);
     if (!isNaN(val) && val >= 0) {
-      onOdometerChange(Math.round(val * 10) / 10);
+      const rounded = Math.round(val * 10) / 10;
+      onOdometerChange(rounded);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
     }
     setIsEditing(false);
   };
@@ -38,22 +43,27 @@ export const OdometerDisplay: React.FC<OdometerDisplayProps> = ({ totalKm, onOdo
         {isEditing ? (
           <button
             onClick={handleSave}
-            className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded text-[9px] font-black uppercase flex items-center gap-0.5 hover:bg-emerald-500/30 transition-all"
+            className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded text-[9px] font-black uppercase flex items-center gap-0.5 hover:bg-emerald-500/30 transition-all shadow-[0_0_8px_rgba(52,211,153,0.3)]"
           >
             <Check size={10} /> Salvar
           </button>
+        ) : showSuccess ? (
+          <div className="flex items-center gap-1 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/40 animate-pulse">
+            <Check size={9} className="text-emerald-400" />
+            <span className="text-[8px] font-black text-emerald-400 uppercase">Salvo na Nuvem</span>
+          </div>
         ) : (
           <div className="flex items-center gap-1">
             <button
               onClick={() => onOdometerChange(Math.max(0, totalKm - 1))}
-              className="px-1 py-0.2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[8px] font-bold"
+              className="px-1 py-0.2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[8px] font-bold transition-colors"
               title="-1 km"
             >
               -1k
             </button>
             <button
               onClick={() => onOdometerChange(totalKm + 1)}
-              className="px-1 py-0.2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[8px] font-bold"
+              className="px-1 py-0.2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[8px] font-bold transition-colors"
               title="+1 km"
             >
               +1k
@@ -63,8 +73,8 @@ export const OdometerDisplay: React.FC<OdometerDisplayProps> = ({ totalKm, onOdo
                 setInputValue(totalKm.toFixed(1));
                 setIsEditing(true);
               }}
-              className="px-1.5 py-0.5 bg-[#161622] text-zinc-400 border border-[#2a2a3e] hover:text-white rounded text-[8px] font-bold uppercase flex items-center gap-0.5 transition-all"
-              title="Ajustar quilometragem"
+              className="px-1.5 py-0.5 bg-[#161622] text-[#c19a6b] border border-[#c19a6b]/30 hover:bg-[#c19a6b]/10 rounded text-[8px] font-bold uppercase flex items-center gap-0.5 transition-all"
+              title="Ajustar quilometragem manualmente"
             >
               <Edit3 size={9} /> Ajustar
             </button>
@@ -73,26 +83,34 @@ export const OdometerDisplay: React.FC<OdometerDisplayProps> = ({ totalKm, onOdo
       </div>
 
       {isEditing ? (
-        <div className="flex items-center gap-2 py-0.5">
+        <div className="flex items-center gap-2 py-0.5 animate-in fade-in zoom-in-95 duration-200">
           <input
             type="number"
             step="0.1"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            className="w-full p-1 bg-[#14141e] border border-[#33334c] rounded-lg text-white font-mono font-bold text-sm text-center focus:outline-none focus:border-[#c19a6b]"
-            placeholder="Ex: 150427"
+            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+            className="w-full p-1 bg-[#14141e] border border-[#c19a6b]/50 rounded-lg text-white font-mono font-bold text-sm text-center focus:outline-none focus:border-[#c19a6b] shadow-[0_0_10px_rgba(193,154,107,0.2)]"
+            placeholder="Ex: 150427.0"
             autoFocus
           />
         </div>
       ) : (
-        /* Odometer Mechanical Drum / LCD Display */
-        <div className="flex items-center justify-center gap-0.5 bg-[#050508] border border-[#1e1e2c] py-1 px-1.5 rounded-lg shadow-inner">
+        /* Odometer Mechanical Drum / LCD Display - CLICKABLE to edit */
+        <div 
+          onClick={() => {
+            setInputValue(totalKm.toFixed(1));
+            setIsEditing(true);
+          }}
+          className="flex items-center justify-center gap-0.5 bg-[#050508] border border-[#1e1e2c] py-1 px-1.5 rounded-lg shadow-inner cursor-pointer hover:border-[#c19a6b]/40 transition-colors group"
+          title="Clique para editar odômetro"
+        >
           {digits.map((digit, idx) => (
             <div
               key={idx}
-              className="w-5 h-6 sm:w-6 sm:h-7 bg-gradient-to-b from-zinc-800 via-zinc-900 to-black border border-zinc-700/60 rounded flex items-center justify-center font-mono font-black text-xs sm:text-sm text-amber-100 shadow-sm relative overflow-hidden"
+              className="w-5 h-6 sm:w-6 sm:h-7 bg-gradient-to-b from-zinc-800 via-zinc-900 to-black border border-zinc-700/60 rounded flex items-center justify-center font-mono font-black text-xs sm:text-sm text-amber-100 shadow-sm relative overflow-hidden group-hover:border-[#c19a6b]/30"
             >
-              <div className="absolute inset-x-0 top-0 h-[1px] bg-white/20" />
+              <div className="absolute inset-x-0 top-0 h-[1px] bg-white/10" />
               <span>{digit}</span>
               <div className="absolute inset-x-0 bottom-0 h-[1px] bg-black/60" />
             </div>
@@ -102,13 +120,13 @@ export const OdometerDisplay: React.FC<OdometerDisplayProps> = ({ totalKm, onOdo
           <span className="text-amber-400 font-mono font-black text-sm px-0.5">.</span>
 
           {/* Red Tenths Digit (Decimais / 100m) */}
-          <div className="w-5 h-6 sm:w-6 sm:h-7 bg-gradient-to-b from-red-900 via-red-950 to-black border border-red-600/80 rounded flex items-center justify-center font-mono font-black text-xs sm:text-sm text-white shadow-sm relative overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-[1px] bg-white/30" />
+          <div className="w-5 h-6 sm:w-6 sm:h-7 bg-gradient-to-b from-red-900 via-red-950 to-black border border-red-600/80 rounded flex items-center justify-center font-mono font-black text-xs sm:text-sm text-white shadow-sm relative overflow-hidden group-hover:border-red-500">
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-white/20" />
             <span>{decPart}</span>
             <div className="absolute inset-x-0 bottom-0 h-[1px] bg-black/60" />
           </div>
 
-          <span className="ml-1 text-[9px] font-black text-zinc-400 font-mono">KM</span>
+          <span className="ml-1 text-[9px] font-black text-zinc-500 font-mono group-hover:text-[#c19a6b]">KM</span>
         </div>
       )}
     </div>

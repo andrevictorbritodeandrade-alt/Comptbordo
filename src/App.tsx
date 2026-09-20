@@ -589,10 +589,13 @@ export default function App() {
     }
   }, [carConfig, activeTripKey, trips, mode, isCloudSynced]);
 
-  // One-time initialization with the user's specific real-world telemetry values (Odometer: 150898km, Driven after refuel: 140km)
+  // One-time initialization with the user's specific real-world telemetry values
+  // Only applies if the odometer is still at the hardcoded default and hasn't been initialized before
   useEffect(() => {
-    const initializedKey = 'user_real_telemetry_applied_150898_v3';
-    if (!localStorage.getItem(initializedKey)) {
+    const initializedKey = 'user_real_telemetry_applied_150898_v4_manual';
+    const isDefaultOdometer = carConfig.totalOdometerKm === 150427.0;
+    
+    if (isDefaultOdometer && !localStorage.getItem(initializedKey)) {
       const drivenAfterRefuelKm = 140.0;
       const baseCons = carConfig.currentFuel === 'gasoline' ? carConfig.avgConsumptionGasoline : carConfig.avgConsumptionEthanol;
       const litersUsed = drivenAfterRefuelKm / baseCons;
@@ -622,7 +625,7 @@ export default function App() {
       });
       localStorage.setItem(initializedKey, 'true');
     }
-  }, [activeTripKey, carConfig.currentFuel, carConfig.avgConsumptionGasoline, carConfig.avgConsumptionEthanol, carConfig.tankCapacity]);
+  }, [activeTripKey, carConfig.currentFuel, carConfig.avgConsumptionGasoline, carConfig.avgConsumptionEthanol, carConfig.tankCapacity, carConfig.totalOdometerKm]);
 
   // Flush state to localStorage on beforeunload / pagehide
   useEffect(() => {
@@ -1534,7 +1537,7 @@ export default function App() {
         <div className="flex flex-col md:grid md:grid-cols-12 gap-1.5 sm:gap-2 flex-1 min-h-0 h-full overflow-hidden">
           
           {/* Column 1: Speedometer Gauge & Total Odometer */}
-          <div className="flex-[1.4] md:col-span-4 flex flex-col gap-1.5 sm:gap-2 h-full min-h-0 justify-between">
+          <div className="flex-1 md:col-span-4 flex flex-col gap-1.5 sm:gap-2 h-full min-h-0 justify-between">
             {/* Speedometer Gauge */}
             <div className="flex-1 min-h-0 flex flex-col">
               <SpeedCanvas
@@ -1559,92 +1562,117 @@ export default function App() {
 
           {/* Column 2: Renault Clio Fuel Gauge & Tank Info (Shown prominently) */}
           <div
-            className={`flex-1 md:col-span-3 flex flex-col justify-between gap-1.5 h-full min-h-0 border rounded-2xl p-1.5 sm:p-2 shadow-xl overflow-hidden transition-colors ${
+            className={`flex-1 md:col-span-3 flex flex-col gap-1.5 h-full min-h-0 border rounded-2xl p-1.5 sm:p-2 shadow-xl overflow-hidden transition-colors ${
               isReserveFuel
                 ? 'bg-[#150a0a] border-red-500/60 shadow-red-950/40'
                 : 'bg-[#09090d] border-[#1e1e28]'
             }`}
           >
-            {/* Refuel & Photo Scan Action Buttons */}
-            <div className="grid grid-cols-2 gap-1.5 shrink-0">
-              <button
-                onClick={() => setShowQuickRefuelModal(true)}
-                className="py-1.5 px-2 bg-[#1b1b2a] hover:bg-[#25253b] text-amber-400 border border-amber-500/40 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
-              >
-                <Fuel size={14} className="text-amber-400" /> Abastecer
-              </button>
-              <button
-                onClick={() => setShowPhotoScanner(true)}
-                className="py-1.5 px-2 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
-              >
-                <Sparkles size={14} className="text-[#c19a6b]" /> Escanear
-              </button>
+            {/* MOBILE VIEW: Ultra High Visibility Fuel & Range Side-by-Side (Requested by User) */}
+            <div className="md:hidden grid grid-cols-2 gap-1.5 flex-1 py-1 h-full">
+              <div className="flex flex-col items-center justify-center bg-[#050508] border border-zinc-800/50 rounded-2xl p-2 shadow-inner">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-400 mb-1">NO TANQUE</span>
+                <div className="text-5xl font-black text-white leading-none tabular-nums flex items-baseline">
+                  {currentLiters}<span className="text-sm text-zinc-500 ml-0.5 font-bold">L</span>
+                </div>
+                <div className="text-xs font-black text-zinc-500 mt-2 uppercase tracking-widest">
+                  {carConfig.fuelLevel.toFixed(1)}%
+                </div>
+              </div>
+              <div className="flex flex-col items-center justify-center bg-[#050508] border border-zinc-800/50 rounded-2xl p-2 shadow-inner">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#c19a6b] mb-1">AUTONOMIA</span>
+                <div className="text-5xl font-black text-[#c19a6b] leading-none tabular-nums flex items-baseline">
+                  {autonomy}<span className="text-sm text-zinc-500 ml-0.5 font-bold">KM</span>
+                </div>
+                <div className="text-xs font-black text-zinc-500 mt-2 uppercase tracking-widest">
+                  ESTIMADO
+                </div>
+              </div>
             </div>
 
-            {/* Dial Canvas */}
-            <div className="flex-1 min-h-0 flex justify-center items-center relative w-full">
-              <div
-                className={`w-full h-full border rounded-xl p-1 relative flex justify-center items-center shadow-inner ${
-                  isReserveFuel
-                    ? 'bg-[#1e0a0a] border-red-500/50'
-                    : 'bg-[#12121c] border-[#222232]'
-                }`}
-              >
-                <FuelGaugeCanvas
-                  fuelLevel={carConfig.fuelLevel}
-                  tankCapacity={carConfig.tankCapacity}
-                  reserveLiters={reserveLitersNum}
-                />
-                {isReserveFuel && (
-                  <div className="absolute top-1 right-1 bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] border border-white animate-bounce shadow-md">
-                    R
+            {/* DESKTOP VIEW: Original Gauges and Details */}
+            <div className="hidden md:flex flex-col justify-between gap-1.5 h-full">
+              {/* Refuel & Photo Scan Action Buttons */}
+              <div className="grid grid-cols-2 gap-1.5 shrink-0">
+                <button
+                  onClick={() => setShowQuickRefuelModal(true)}
+                  className="py-1.5 px-2 bg-[#1b1b2a] hover:bg-[#25253b] text-amber-400 border border-amber-500/40 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
+                >
+                  <Fuel size={14} className="text-amber-400" /> Abastecer
+                </button>
+                <button
+                  onClick={() => setShowPhotoScanner(true)}
+                  className="py-1.5 px-2 bg-[#14141e] hover:bg-[#1f1f2c] text-[#c19a6b] border border-[#c19a6b]/40 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
+                >
+                  <Sparkles size={14} className="text-[#c19a6b]" /> Escanear
+                </button>
+              </div>
+
+              {/* Dial Canvas */}
+              <div className="flex-1 min-h-0 flex justify-center items-center relative w-full">
+                <div
+                  className={`w-full h-full border rounded-xl p-1 relative flex justify-center items-center shadow-inner ${
+                    isReserveFuel
+                      ? 'bg-[#1e0a0a] border-red-500/50'
+                      : 'bg-[#12121c] border-[#222232]'
+                  }`}
+                >
+                  <FuelGaugeCanvas
+                    fuelLevel={carConfig.fuelLevel}
+                    tankCapacity={carConfig.tankCapacity}
+                    reserveLiters={reserveLitersNum}
+                  />
+                  {isReserveFuel && (
+                    <div className="absolute top-1 right-1 bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] border border-white animate-bounce shadow-md">
+                      R
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Tank Metrics Grid - 4 Perfectly Framed Cards */}
+              <div className="grid grid-cols-2 gap-1.5 shrink-0 my-0">
+                <div
+                  className={`p-1.5 rounded-xl text-center flex flex-col justify-center border ${
+                    isReserveFuel
+                      ? 'bg-red-950/30 border-red-500/50'
+                      : 'bg-[#12121c] border-[#222232]'
+                  }`}
+                >
+                  <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
+                  <div className={`text-sm sm:text-base font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
+                    {currentLiters} L
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Tank Metrics Grid - 4 Perfectly Framed Cards */}
-            <div className="grid grid-cols-2 gap-1.5 shrink-0 my-0">
-              <div
-                className={`p-1.5 rounded-xl text-center flex flex-col justify-center border ${
-                  isReserveFuel
-                    ? 'bg-red-950/30 border-red-500/50'
-                    : 'bg-[#12121c] border-[#222232]'
-                }`}
-              >
-                <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">NO TANQUE</span>
-                <div className={`text-sm sm:text-base font-black mt-0.5 ${isReserveFuel ? 'text-red-400' : 'text-white'}`}>
-                  {currentLiters} L
+                  <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
                 </div>
-                <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">de {carConfig.tankCapacity} L ({carConfig.fuelLevel.toFixed(1)}%)</span>
-              </div>
 
-              <div
-                className={`p-1.5 rounded-xl text-center flex flex-col justify-center border ${
-                  isReserveFuel
-                    ? 'bg-red-500/20 border-red-500 shadow-md animate-pulse'
-                    : 'bg-[#12121c] border-[#222232]'
-                }`}
-              >
-                <span className="text-[9px] font-black uppercase tracking-wider text-red-400">RESERVA</span>
-                <div className="text-sm sm:text-base font-black text-red-400 mt-0.5">
-                  {isReserveFuel ? '⚠️ RESERVA' : `≤ ${reserveLiters} L`}
+                <div
+                  className={`p-1.5 rounded-xl text-center flex flex-col justify-center border ${
+                    isReserveFuel
+                      ? 'bg-red-500/20 border-red-500 shadow-md animate-pulse'
+                      : 'bg-[#12121c] border-[#222232]'
+                  }`}
+                >
+                  <span className="text-[9px] font-black uppercase tracking-wider text-red-400">RESERVA</span>
+                  <div className="text-sm sm:text-base font-black text-red-400 mt-0.5">
+                    {isReserveFuel ? '⚠️ RESERVA' : `≤ ${reserveLiters} L`}
+                  </div>
+                  <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">
+                    {isReserveFuel ? `${currentLiters}L ≤ ${reserveLiters}L` : `Limite ${reserveLiters} L`}
+                  </span>
                 </div>
-                <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">
-                  {isReserveFuel ? `${currentLiters}L ≤ ${reserveLiters}L` : `Limite ${reserveLiters} L`}
-                </span>
-              </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-1.5 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-[9px] font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA</span>
-                <div className="text-sm sm:text-base font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
-                <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">com {currentLiters} L</span>
-              </div>
+                <div className="bg-[#12121c] border border-[#222232] p-1.5 rounded-xl text-center flex flex-col justify-center">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-[#c19a6b]">AUTONOMIA</span>
+                  <div className="text-sm sm:text-base font-black text-[#c19a6b] mt-0.5">{autonomy} KM</div>
+                  <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">com {currentLiters} L</span>
+                </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-1.5 rounded-xl text-center flex flex-col justify-center">
-                <span className="text-[9px] font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
-                <div className="text-sm sm:text-base font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
-                <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
+                <div className="bg-[#12121c] border border-[#222232] p-1.5 rounded-xl text-center flex flex-col justify-center">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-zinc-200">TANQUE CHEIO</span>
+                  <div className="text-sm sm:text-base font-black text-white mt-0.5">{fullTankAutonomy} KM</div>
+                  <span className="text-[9px] text-zinc-400 font-bold mt-0.5 leading-tight">{carConfig.tankCapacity}L @ {baseConsumption} km/L</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1673,84 +1701,84 @@ export default function App() {
             </div>
 
             {/* 4 Primary High-Visibility Trip Cards */}
-            <div className="grid grid-cols-2 gap-1.5 shrink-0 items-stretch">
-              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+            <div className="grid grid-cols-2 gap-1 flex-1 min-h-0 items-stretch">
+              <div className="bg-[#12121c] border border-[#222232] p-1.5 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
                   DISTÂNCIA
                 </span>
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+                <div className="text-xl sm:text-3xl font-black text-white tracking-tight leading-none">
                   {(activeTrip.distance / 1000).toFixed(1)}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM</span>
+                <span className="text-[8px] sm:text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+              <div className="bg-[#12121c] border border-[#222232] p-1.5 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
                 <div className="flex items-center gap-1 mb-0.5">
-                  <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b]">
-                    TEMPO LÍQUIDO
+                  <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b]">
+                    TEMPO
                   </span>
                   {speed === 0 && activeTrip.active && !activeTrip.paused && (
-                    <span className="text-[8px] font-black text-amber-400 bg-amber-500/15 border border-amber-500/40 px-1 py-0.2 rounded-full animate-pulse">
-                      PAUSADO
+                    <span className="text-[7px] font-black text-amber-400 bg-amber-500/15 border border-amber-500/40 px-1 py-0.2 rounded-full animate-pulse">
+                      PAUSA
                     </span>
                   )}
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+                <div className="text-xl sm:text-3xl font-black text-white tracking-tight leading-none">
                   {formatTime(activeTrip.elapsedTime)}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">
-                  HH:MM:SS ({speed > 0 ? 'EM MOVIMENTO' : 'PARADO'})
+                <span className="text-[8px] sm:text-[10px] font-black text-zinc-400 uppercase mt-0.5">
+                  HH:MM:SS
                 </span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
-                  CONSUMO MÉDIO
+              <div className="bg-[#12121c] border border-[#222232] p-1.5 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+                  MÉDIO
                 </span>
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+                <div className="text-xl sm:text-3xl font-black text-white tracking-tight leading-none">
                   {tripAvgCons}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / L</span>
+                <span className="text-[8px] sm:text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / L</span>
               </div>
 
-              <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
-                  VELOCIDADE MÉDIA
+              <div className="bg-[#12121c] border border-[#222232] p-1.5 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
+                  V. MÉDIA
                 </span>
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+                <div className="text-xl sm:text-3xl font-black text-white tracking-tight leading-none">
                   {tripAvgSpeed}
                 </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / H</span>
+                <span className="text-[8px] sm:text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / H</span>
               </div>
             </div>
 
-            {/* Trip Action Buttons */}
-            <div className="grid grid-cols-2 gap-1.5 shrink-0">
+            {/* Trip Action Buttons - Compact for Mobile to fit everything */}
+            <div className="grid grid-cols-2 gap-1 sm:gap-1.5 shrink-0 mt-1">
               <button
                 onClick={toggleTripState}
-                className="py-2 border border-[#c19a6b] bg-[#c19a6b] hover:bg-[#a88255] text-black rounded-xl text-xs font-black uppercase tracking-[0.15em] flex justify-center items-center gap-1.5 transition-transform active:scale-95 shadow-md"
+                className="py-1.5 sm:py-2 border border-[#c19a6b] bg-[#c19a6b] hover:bg-[#a88255] text-black rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider flex justify-center items-center gap-1.5 transition-transform active:scale-95 shadow-md"
               >
                 {activeTrip.active && !activeTrip.paused ? (
                   <>
-                    <Pause size={14} /> PAUSAR TRIP
+                    <Pause size={12} /> PAUSAR
                   </>
                 ) : (
                   <>
-                    <Play size={14} /> {activeTrip.paused ? 'RETOMAR' : 'INICIAR TRIP'}
+                    <Play size={12} /> {activeTrip.paused ? 'RETOMAR' : 'INICIAR'}
                   </>
                 )}
               </button>
 
               <button
                 onClick={resetTrip}
-                className="py-2 border border-[#2a2a3c] bg-[#14141e] hover:bg-[#1f1f2c] text-zinc-200 hover:text-white rounded-xl text-xs font-black uppercase tracking-[0.15em] flex justify-center items-center gap-1.5 transition-transform active:scale-95"
+                className="py-1.5 sm:py-2 border border-[#2a2a3c] bg-[#14141e] hover:bg-[#1f1f2c] text-zinc-200 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider flex justify-center items-center gap-1.5 transition-transform active:scale-95"
               >
-                <RotateCcw size={14} /> ZERAR TRIP
+                <RotateCcw size={12} /> ZERAR
               </button>
             </div>
 
-            {/* Instant Consumption */}
-            <div className="bg-[#12121c] border border-[#222232] px-2.5 py-1.5 rounded-xl shrink-0">
+            {/* Instant Consumption - Hidden on Mobile to save space */}
+            <div className="hidden md:block bg-[#12121c] border border-[#222232] px-2.5 py-1.5 rounded-xl shrink-0">
               <div className="flex justify-between items-center mb-0.5">
                 <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-300">
                   CONSUMO INSTANTÂNEO
