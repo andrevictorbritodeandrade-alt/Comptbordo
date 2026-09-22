@@ -1578,10 +1578,10 @@ export default function App() {
                 <div className="text-xs font-black text-zinc-500 mt-1 uppercase tracking-widest">
                   {carConfig.fuelLevel.toFixed(1)}%
                 </div>
-                <div className="mt-3 pt-2 border-t border-zinc-800/50 w-full text-center">
-                  <span className="text-[8px] font-black text-zinc-500 uppercase block mb-0.5">VELOCIDADE MÉDIA</span>
-                  <div className="text-xl font-black text-emerald-400 tabular-nums">
-                    {tripAvgSpeed} <span className="text-[10px] font-bold">KM/H</span>
+                <div className="mt-2 pt-2 border-t border-zinc-800/50 w-full text-center">
+                  <span className="text-[8px] font-black text-zinc-500 uppercase block mb-1">VELOCIDADE MÉDIA</span>
+                  <div className="text-5xl font-black text-emerald-400 leading-none tabular-nums flex items-baseline justify-center">
+                    {tripAvgSpeed}<span className="text-sm text-zinc-500 ml-0.5 font-bold">KM/H</span>
                   </div>
                 </div>
               </div>
@@ -1593,10 +1593,10 @@ export default function App() {
                 <div className="text-xs font-black text-zinc-500 mt-1 uppercase tracking-widest">
                   ESTIMADO
                 </div>
-                <div className="mt-3 pt-2 border-t border-zinc-800/50 w-full text-center">
-                  <span className="text-[8px] font-black text-zinc-500 uppercase block mb-0.5">EST. KM POR LITRO</span>
-                  <div className="text-xl font-black text-[#c19a6b] tabular-nums">
-                    {instantConsumption.toFixed(1)} <span className="text-[10px] font-bold">KM/L</span>
+                <div className="mt-2 pt-2 border-t border-zinc-800/50 w-full text-center">
+                  <span className="text-[8px] font-black text-zinc-500 uppercase block mb-1">EST. KM POR LITRO</span>
+                  <div className="text-5xl font-black text-[#c19a6b] leading-none tabular-nums flex items-baseline justify-center">
+                    {instantConsumption.toFixed(1)}<span className="text-sm text-zinc-500 ml-0.5 font-bold">KM/L</span>
                   </div>
                 </div>
               </div>
