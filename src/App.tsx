@@ -1538,12 +1538,12 @@ export default function App() {
         {/* Dashboard Layout - Flex-col on mobile, Grid on desktop - Strictly single-screen */}
         <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden w-full">
           
-          {/* ================= MOBILE VIEW: Strictly single-screen vertical flow ================= */}
-          <div className="md:hidden flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto px-0.5 pb-2">
+          {/* ================= MOBILE VIEW: Full-height top-to-bottom layout with prominent TRIP data ================= */}
+          <div className="md:hidden flex flex-col justify-between gap-2 flex-1 min-h-0 h-full w-full overflow-y-auto px-0.5 pb-2">
             
             {/* 1. Speedometer & Odometer */}
             <div className="flex flex-col gap-1 shrink-0">
-              <div className="h-44 sm:h-52 flex flex-col">
+              <div className="h-40 sm:h-48 flex flex-col">
                 <SpeedCanvas
                   speed={speed}
                   textSource={gpsState.sourceText}
@@ -1562,90 +1562,90 @@ export default function App() {
               </div>
             </div>
 
-            {/* 2. TRIP Information (Logo abaixo do marcador de velocidade, com letras maiores) */}
-            <div className="bg-[#09090d] border border-[#1e1e28] rounded-2xl p-2.5 shadow-xl flex flex-col gap-2 shrink-0">
+            {/* 2. TRIP Information - Extra prominent and large */}
+            <div className="bg-[#120f0a] border-2 border-amber-500/50 rounded-2xl p-3 shadow-2xl shadow-amber-950/30 flex flex-col gap-2 shrink-0">
               <div className="flex items-center justify-between">
-                <div className="flex bg-[#050508] border border-[#1e1e28] rounded-lg p-0.5 flex-1 mr-2">
+                <div className="flex bg-[#050508] border border-amber-500/30 rounded-xl p-0.5 flex-1 mr-2">
                   {(['a', 'b'] as TripKey[]).map((k) => (
                     <button
                       key={k}
                       onClick={() => setActiveTripKey(k)}
-                      className={`flex-1 py-1 rounded-md text-xs font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-1.5 ${
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-1.5 ${
                         activeTripKey === k
-                          ? 'text-[#c19a6b] bg-[#c19a6b]/20 border border-[#c19a6b]/40 shadow-sm'
-                          : 'text-zinc-400 hover:text-zinc-200'
+                          ? 'text-black bg-amber-400 font-extrabold shadow-md'
+                          : 'text-zinc-400 hover:text-white'
                       }`}
                     >
-                      {k === 'a' ? <Route size={13} /> : <Map size={13} />}
+                      {k === 'a' ? <Route size={14} /> : <Map size={14} />}
                       TRIP {k.toUpperCase()}
                       {trips[k].active && !trips[k].paused && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
                       )}
                     </button>
                   ))}
                 </div>
                 <button
                   onClick={toggleTripState}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-md transition-all active:scale-95 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-lg transition-all active:scale-95 ${
                     activeTrip.active && !activeTrip.paused
-                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
-                      : 'bg-emerald-600 text-white border border-emerald-400/30'
+                      ? 'bg-amber-500/25 text-amber-300 border border-amber-500'
+                      : 'bg-emerald-600 text-white border border-emerald-400'
                   }`}
                 >
-                  {activeTrip.active && !activeTrip.paused ? <Pause size={12} /> : <Play size={12} />}
+                  {activeTrip.active && !activeTrip.paused ? <Pause size={13} /> : <Play size={13} />}
                   {activeTrip.active && !activeTrip.paused ? 'Pausar' : 'Iniciar'}
                 </button>
               </div>
 
-              {/* Larger Trip Cards */}
-              <div className="grid grid-cols-2 gap-1.5">
-                <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
-                    DISTÂNCIA
+              {/* Massive Prominent Trip Cards */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-[#1a140c] border border-amber-500/40 p-2.5 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-0.5">
+                    DISTÂNCIA TRIP
                   </span>
-                  <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
+                  <div className="text-4xl sm:text-5xl font-black text-white tracking-tight leading-none">
                     {(activeTrip.distance / 1000).toFixed(1)}
                   </div>
-                  <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM</span>
+                  <span className="text-[10px] font-black text-amber-300/80 uppercase mt-0.5">KM</span>
                 </div>
 
-                <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
-                    TEMPO
+                <div className="bg-[#1a140c] border border-amber-500/40 p-2.5 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-0.5">
+                    TEMPO TRIP
                   </span>
-                  <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+                  <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
                     {formatTime(activeTrip.elapsedTime)}
                   </div>
-                  <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">HH:MM:SS</span>
+                  <span className="text-[10px] font-black text-amber-300/80 uppercase mt-0.5">HH:MM:SS</span>
                 </div>
 
-                <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
-                    MÉDIO
+                <div className="bg-[#1a140c] border border-amber-500/40 p-2.5 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-0.5">
+                    MÉDIO CONSUMO
                   </span>
-                  <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
+                  <div className="text-4xl sm:text-5xl font-black text-white tracking-tight leading-none">
                     {tripAvgCons}
                   </div>
-                  <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / L</span>
+                  <span className="text-[10px] font-black text-amber-300/80 uppercase mt-0.5">KM / L</span>
                 </div>
 
-                <div className="bg-[#12121c] border border-[#222232] p-2 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#c19a6b] mb-0.5">
-                    V. MÉDIA
+                <div className="bg-[#1a140c] border border-amber-500/40 p-2.5 rounded-xl flex flex-col justify-center items-center text-center shadow-inner">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-0.5">
+                    VELOCIDADE MÉDIA
                   </span>
-                  <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-none">
+                  <div className="text-4xl sm:text-5xl font-black text-white tracking-tight leading-none">
                     {tripAvgSpeed}
                   </div>
-                  <span className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">KM / H</span>
+                  <span className="text-[10px] font-black text-amber-300/80 uppercase mt-0.5">KM / H</span>
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-1">
+              <div className="flex gap-2 mt-0.5">
                 <button
                   onClick={resetTrip}
-                  className="flex-1 py-1.5 border border-[#2a2a3c] bg-[#14141e] hover:bg-[#1f1f2c] text-zinc-200 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex justify-center items-center gap-1.5 transition-transform active:scale-95"
+                  className="flex-1 py-2 border border-amber-500/30 bg-[#1a140c] hover:bg-[#251c11] text-amber-300 rounded-xl text-xs font-black uppercase tracking-wider flex justify-center items-center gap-1.5 transition-transform active:scale-95 shadow-md"
                 >
-                  <RotateCcw size={12} /> ZERAR TRIP
+                  <RotateCcw size={13} /> ZERAR TRIP {activeTripKey.toUpperCase()}
                 </button>
               </div>
             </div>
