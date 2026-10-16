@@ -112,7 +112,7 @@ export default function App() {
   const [citySearchError, setCitySearchError] = useState<string | null>(null);
   const [gpsDenied, setGpsDenied] = useState<boolean>(false);
   const [hudMode, setHudMode] = useState<boolean>(false);
-  const [showClioFuelPrompt, setShowClioFuelPrompt] = useState<boolean>(true);
+  const [showClioFuelPrompt, setShowClioFuelPrompt] = useState<boolean>(false);
 
   const handleRequestRealGps = () => {
     if ('geolocation' in navigator) {
@@ -1536,7 +1536,7 @@ export default function App() {
         </header>
 
         {/* Dashboard Layout - Flex-col on mobile, Grid on desktop - Strictly single-screen */}
-        <div className="flex flex-col md:grid md:grid-cols-12 gap-1.5 sm:gap-2 flex-1 min-h-0 h-full overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden w-full">
           
           {/* ================= MOBILE VIEW: Strictly single-screen vertical flow ================= */}
           <div className="md:hidden flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto px-0.5 pb-2">
