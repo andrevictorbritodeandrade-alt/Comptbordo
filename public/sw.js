@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clio-telemetria-v3';
+const CACHE_NAME = 'clio-telemetria-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -61,11 +61,32 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Standard Network-First strategy for other assets
+  // NEVER cache dev files, Vite scripts, node_modules, API routes, or modules with version query params
+  const isDevOrScript = 
+    url.pathname.startsWith('/node_modules/') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/api/') ||
+    url.searchParams.has('v') ||
+    url.pathname.endsWith('.tsx') ||
+    url.pathname.endsWith('.ts');
+
+  if (isDevOrScript) {
+    return; // Pass directly to network
+  }
+
+  // Standard Network-First strategy only for genuine static assets
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response && response.status === 200 && event.request.method === 'GET' && !url.hostname.includes('localhost')) {
+        if (
+          response &&
+          response.status === 200 &&
+          event.request.method === 'GET' &&
+          !url.hostname.includes('localhost') &&
+          !url.hostname.includes('ais-dev') &&
+          (url.pathname.endsWith('.svg') || url.pathname.endsWith('.json') || url.pathname.endsWith('.css') || url.pathname.endsWith('.png'))
+        ) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);

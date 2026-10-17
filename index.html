@@ -31,11 +31,28 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then((reg) => {
-            console.log('ServiceWorker registered with scope:', reg.scope);
-          }).catch((err) => {
-            console.error('ServiceWorker registration failed:', err);
-          });
+          const isDev = window.location.hostname.includes('ais-dev') || window.location.hostname === 'localhost' || window.location.port === '3000';
+          if (isDev) {
+            // Clean up any stale service workers or caches that could cause duplicate React chunk conflicts
+            navigator.serviceWorker.getRegistrations().then((registrations) => {
+              for (const reg of registrations) {
+                reg.unregister();
+              }
+            });
+            if ('caches' in window) {
+              caches.keys().then((names) => {
+                for (const name of names) {
+                  if (name.startsWith('clio-telemetria')) {
+                    caches.delete(name);
+                  }
+                }
+              });
+            }
+          } else {
+            navigator.serviceWorker.register('/sw.js').catch((err) => {
+              console.error('ServiceWorker registration error:', err);
+            });
+          }
         });
       }
     </script>
